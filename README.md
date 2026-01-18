@@ -6,26 +6,7 @@ Ce projet est une adaptation du jeu "Une Famille en Or" (Family Feud) pour la cu
 
 1. **Préparer Supabase** :
    - Créez un projet sur [Supabase](https://supabase.com/).
-   - Allez dans le **SQL Editor** et exécutez le script suivant :
-     ```sql
-     -- Table pour stocker l'état global du jeu
-     create table game_state (
-       id text primary key,
-       payload jsonb not null,
-       updated_at timestamp with time zone default now()
-     );
-
-     -- Activer le Realtime pour permettre la synchronisation instantanée
-     alter publication supabase_realtime add table game_state;
-
-     -- Row Level Security (RLS)
-     -- Pour un projet de démo/privé, vous pouvez désactiver RLS :
-     alter table game_state disable row level security;
-
-     -- OU, pour plus de sécurité, activez RLS et ajoutez une politique publique :
-     -- alter table game_state enable row level security;
-     -- create policy "Public Access" on game_state for all using (true) with check (true);
-     ```
+   - **Note :** La création des tables et la configuration du Realtime sont désormais **automatiques** lors du premier déploiement sur Vercel, grâce au script `db:init`.
 
 2. **Déployer sur Vercel** :
    - Connectez votre dépôt à Vercel.
