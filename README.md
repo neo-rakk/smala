@@ -1,63 +1,49 @@
-# 🇩🇿 Famille DZ en Or - Plateforme Live
+# Famille DZ en Or - Guide de Déploiement
 
-Une interface web interactive pour le jeu "Famille en Or" (version Algérienne), conçue pour être jouée en direct sur TikTok ou Discord.
+Ce projet est une adaptation du jeu "Une Famille en Or" (Family Feud) pour la culture algérienne, optimisé pour une diffusion en direct (ex: TikTok Live) avec une synchronisation en temps réel via Supabase.
 
-## 🚀 Fonctionnalités
+## 🚀 Déploiement Rapide sur Vercel
 
-- **Contrôle Centralisé (Animateur) :** Un mode administrateur complet pour gérer les questions, les scores, le chrono et même lancer les dés pour les équipes.
-- **Synchronisation Temps Réel :** Utilise Supabase pour synchroniser l'état du jeu instantanément entre l'animateur et les spectateurs/joueurs.
-- **Affichage Joueur Simplifié :** Les joueurs voient l'évolution du jeu en temps réel sans avoir besoin d'interagir (idéal pour le streaming).
-- **Anti-Blocage :** Remplace l'ancien système P2P par une base de données cloud pour éviter les blocages de navigateurs.
+1. **Préparer Supabase** :
+   - Créez un projet sur [Supabase](https://supabase.com/).
+   - Allez dans le **SQL Editor** et exécutez le script suivant :
+     ```sql
+     -- Table pour stocker l'état global du jeu
+     create table game_state (
+       id text primary key,
+       payload jsonb not null,
+       updated_at timestamp with time zone default now()
+     );
 
-## 🛠 Configuration Supabase (Indispensable)
+     -- Activer le Realtime pour permettre la synchronisation instantanée
+     alter publication supabase_realtime add table game_state;
 
-Pour que la synchronisation fonctionne, vous devez configurer votre projet Supabase :
+     -- Row Level Security (RLS)
+     -- Pour un projet de démo/privé, vous pouvez désactiver RLS :
+     alter table game_state disable row level security;
 
-1.  Allez dans votre **Table Editor** sur Supabase.
-2.  Créez une table nommée `rooms` avec la structure suivante (ou utilisez le SQL ci-dessous dans l'**SQL Editor**) :
+     -- OU, pour plus de sécurité, activez RLS et ajoutez une politique publique :
+     -- alter table game_state enable row level security;
+     -- create policy "Public Access" on game_state for all using (true) with check (true);
+     ```
 
-```sql
--- 1. Créer la table des salons
-create table public.rooms (
-  code text primary key,
-  state jsonb not null,
-  updated_at timestamp with time zone default now()
-);
+2. **Déployer sur Vercel** :
+   - Connectez votre dépôt à Vercel.
+   - Lors de la configuration des variables d'environnement, utilisez le bouton d'importation pour uploader le fichier `.env` qui se trouve à la racine du projet.
+   - Cliquez sur **Deploy**.
 
--- 2. Activer la réplication en temps réel
-alter publication supabase_realtime add table rooms;
-```
+## 🛠 Configuration Technique
 
-3.  Allez dans **Project Settings > API** pour récupérer votre URL et votre clé `anon`.
-
-## 📦 Installation et Déploiement
-
-### 1. Variables d'Environnement
-Créez un fichier `.env` à la racine du projet (ou configurez-les sur Vercel/CodeSandbox) :
-
-```env
-VITE_SUPABASE_URL=votre_url_supabase
-VITE_SUPABASE_ANON_KEY=votre_cle_anon_supabase
-```
-
-### 2. Déploiement Local
-```bash
-pnpm install
-pnpm dev
-```
-
-### 3. Déploiement Vercel / Netlify
-Connectez votre dépôt GitHub et ajoutez les deux variables d'environnement ci-dessus dans les paramètres de déploiement. Le projet sera automatiquement construit et déployé.
+Les variables d'environnement nécessaires sont :
+- `VITE_SUPABASE_URL` : L'URL de votre projet Supabase.
+- `VITE_SUPABASE_ANON_KEY` : La clé API anonyme de votre projet.
 
 ## 🎮 Comment Jouer
 
-1.  **Animateur :** 
-    - Cliquez sur "MODE ANIMATEUR".
-    - Créez un salon avec un code (ex: `DZ-2024`).
-    - Gérez le jeu depuis le panneau de contrôle. Vous pouvez maintenant lancer les dés pour l'équipe A ou B directement.
-2.  **Joueurs / Spectateurs :**
-    - Entrez le code du salon créé par l'animateur.
-    - Suivez le live ! Aucune interaction n'est requise de leur part.
+1. Accédez à l'URL déployée.
+2. Cliquez sur l'icône de réglages (en bas à droite) pour accéder à la régie.
+3. Entrez le code PIN : `2985`.
+4. Gérez les scores, révélez les réponses et contrôlez le jeu en direct !
 
-## 📝 Notes Techniques
-Le projet utilise **Vite**, **React**, **Tailwind CSS** et **Supabase**. L'ancien système PeerJS a été retiré pour garantir une fiabilité maximale sur tous les réseaux.
+---
+Développé avec ❤️ pour la communauté DZ.

@@ -20,9 +20,12 @@ const App: React.FC = () => {
     };
     init();
 
-    const bc = new BroadcastChannel('dz_show_sync');
-    bc.onmessage = (event) => setRoom(event.data);
-    return () => bc.close();
+    const unsubscribe = localDB.subscribe((newState) => {
+      setRoom(newState);
+    });
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleAction = useCallback(async (type: string, payload: any) => {
