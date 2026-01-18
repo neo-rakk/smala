@@ -34,6 +34,27 @@ export interface User {
   isCaptain: boolean;
   isHost: boolean;
   score: number;
+  avatar_url?: string;
+  team_id?: string;
+}
+
+export interface Profile {
+  id: string;
+  nickname: string;
+  avatar_url?: string;
+}
+
+export interface TeamData {
+  id: string;
+  name: string;
+  captain_id: string;
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  team_name: string;
+  score: number;
+  created_at: string;
 }
 
 export interface GameRoom {
