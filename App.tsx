@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { GameRoom, GameState, Team, User, Profile } from './types';
 import { INITIAL_QUESTIONS } from './constants';
@@ -11,6 +11,70 @@ import { supabase } from './services/supabase';
 import Auth from './components/Auth';
 import Leaderboard from './components/Leaderboard';
 
+const TeamEditSection: React.FC<{
+  team: Team,
+  room: GameRoom,
+  user: User,
+  handleAction: (type: string, payload: any) => Promise<void>
+}> = ({ team, room, user, handleAction }) => {
+  const [input, setInput] = useState('');
+  const isTeamA = team === Team.A;
+  const teamName = isTeamA ? room.teamAName : room.teamBName;
+  const players = room.users.filter(u => u.team === team);
+  const colorClass = isTeamA ? 'emerald' : 'red';
+
+  const onUpdate = () => {
+    if (!input.trim()) return;
+    handleAction('SET_TEAM_NAME', { team, name: input.trim() });
+    setInput('');
+  };
+
+  const cardStyle = isTeamA
+    ? (user.team === team ? 'bg-emerald-600/20 border-emerald-500' : 'bg-black/40 border-white/5')
+    : (user.team === team ? 'bg-red-600/20 border-red-500' : 'bg-black/40 border-white/5');
+
+  const titleStyle = isTeamA ? 'text-emerald-400' : 'text-red-400';
+  const buttonStyle = isTeamA ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500';
+  const borderStyle = isTeamA ? 'border-emerald-500 text-emerald-500 hover:bg-emerald-500' : 'border-red-500 text-red-500 hover:bg-red-500';
+  const inputStyle = isTeamA ? 'border-emerald-500/30 focus:border-emerald-500' : 'border-red-500/30 focus:border-red-500';
+
+  return (
+    <div className={`p-6 rounded-2xl border-2 transition-all ${cardStyle}`}>
+      <h3 className={`font-game text-2xl mb-4 uppercase ${titleStyle}`}>{teamName}</h3>
+      <div className="space-y-2 mb-4">
+        {players.map(u => (
+          <div key={u.id} className="text-xs text-white flex justify-between items-center bg-white/5 p-2 rounded-lg">
+            <span>{u.nickname} {u.isCaptain && <i className="fas fa-crown text-yellow-500 ml-1"></i>}</span>
+          </div>
+        ))}
+        {[...Array(Math.max(0, 4 - players.length))].map((_, i) => (
+          <div key={i} className="text-[10px] text-slate-600 border border-dashed border-slate-800 p-2 rounded-lg text-center">Place libre</div>
+        ))}
+      </div>
+
+      {user.team !== team && players.length < 4 && (
+        <button onClick={() => handleAction('SET_PLAYER_TEAM', { userId: user.id, team })} className={`w-full py-2 rounded-lg font-bold text-xs uppercase transition-colors text-white ${buttonStyle}`}>Rejoindre</button>
+      )}
+
+      {user.team === team && !user.isCaptain && (
+        <button onClick={() => handleAction('SET_CAPTAIN', { userId: user.id })} className={`w-full py-2 border rounded-lg font-bold text-xs uppercase hover:text-white transition-all mt-2 ${borderStyle}`}>Devenir Capitaine</button>
+      )}
+
+      {user.team === team && user.isCaptain && (
+        <div className="mt-2 flex gap-2">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Nouveau nom..."
+            className={`flex-1 bg-black border rounded-lg px-2 text-xs text-white outline-none ${inputStyle}`}
+          />
+          <button onClick={onUpdate} className={`p-2 rounded-lg transition-colors ${buttonStyle}`}><i className="fas fa-check text-xs text-white"></i></button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const GamePage: React.FC<{
   room: GameRoom | null,
   user: User | null,
@@ -18,29 +82,6 @@ const GamePage: React.FC<{
   handleAction: (type: string, payload: any) => Promise<void>,
   setShowLogin: (show: boolean) => void
 }> = ({ room, user, isAdmin, handleAction, setShowLogin }) => {
-  const [teamNameInput, setTeamNameInput] = useState('');
-
-  const joinTeam = (team: Team) => {
-    if (!user) return;
-    const teamCount = room?.users.filter(u => u.team === team).length || 0;
-    if (teamCount >= 4) {
-      alert("Cette équipe est déjà complète (max 4 joueurs).");
-      return;
-    }
-    handleAction('SET_PLAYER_TEAM', { userId: user.id, team });
-  };
-
-  const becomeCaptain = () => {
-    if (!user || user.team === Team.NONE) return;
-    handleAction('SET_CAPTAIN', { userId: user.id });
-  };
-
-  const updateTeamName = () => {
-    if (!user || !user.isCaptain) return;
-    handleAction('SET_TEAM_NAME', { team: user.team, name: teamNameInput });
-    setTeamNameInput('');
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-hidden relative font-sans">
       {!isAdmin && (
@@ -79,51 +120,8 @@ const GamePage: React.FC<{
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Team A Selection */}
-                  <div className={`p-6 rounded-2xl border-2 transition-all ${user.team === Team.A ? 'bg-emerald-600/20 border-emerald-500' : 'bg-black/40 border-white/5'}`}>
-                    <h3 className="font-game text-2xl text-emerald-400 mb-4 uppercase">{room.teamAName}</h3>
-                    <div className="space-y-2 mb-4">
-                      {room.users.filter(u => u.team === Team.A).map(u => (
-                        <div key={u.id} className="text-xs text-white flex justify-between items-center bg-white/5 p-2 rounded-lg">
-                          <span>{u.nickname} {u.isCaptain && <i className="fas fa-crown text-yellow-500 ml-1"></i>}</span>
-                        </div>
-                      ))}
-                      {[...Array(Math.max(0, 4 - room.users.filter(u => u.team === Team.A).length))].map((_, i) => (
-                        <div key={i} className="text-[10px] text-slate-600 border border-dashed border-slate-800 p-2 rounded-lg text-center">Place libre</div>
-                      ))}
-                    </div>
-                    {user.team !== Team.A && <button onClick={() => joinTeam(Team.A)} className="w-full py-2 bg-emerald-600 rounded-lg font-bold text-xs uppercase hover:bg-emerald-500 transition-colors">Rejoindre</button>}
-                    {user.team === Team.A && !user.isCaptain && <button onClick={becomeCaptain} className="w-full py-2 border border-emerald-500 text-emerald-500 rounded-lg font-bold text-xs uppercase hover:bg-emerald-500 hover:text-white transition-all mt-2">Devenir Capitaine</button>}
-                    {user.team === Team.A && user.isCaptain && (
-                      <div className="mt-2 flex gap-2">
-                        <input value={teamNameInput} onChange={e => setTeamNameInput(e.target.value)} placeholder="Nom d'équipe" className="flex-1 bg-black border border-emerald-500/30 rounded-lg px-2 text-xs text-white" />
-                        <button onClick={updateTeamName} className="p-2 bg-emerald-600 rounded-lg"><i className="fas fa-check text-xs"></i></button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Team B Selection */}
-                  <div className={`p-6 rounded-2xl border-2 transition-all ${user.team === Team.B ? 'bg-red-600/20 border-red-500' : 'bg-black/40 border-white/5'}`}>
-                    <h3 className="font-game text-2xl text-red-400 mb-4 uppercase">{room.teamBName}</h3>
-                    <div className="space-y-2 mb-4">
-                      {room.users.filter(u => u.team === Team.B).map(u => (
-                        <div key={u.id} className="text-xs text-white flex justify-between items-center bg-white/5 p-2 rounded-lg">
-                          <span>{u.nickname} {u.isCaptain && <i className="fas fa-crown text-yellow-500 ml-1"></i>}</span>
-                        </div>
-                      ))}
-                      {[...Array(Math.max(0, 4 - room.users.filter(u => u.team === Team.B).length))].map((_, i) => (
-                        <div key={i} className="text-[10px] text-slate-600 border border-dashed border-slate-800 p-2 rounded-lg text-center">Place libre</div>
-                      ))}
-                    </div>
-                    {user.team !== Team.B && <button onClick={() => joinTeam(Team.B)} className="w-full py-2 bg-red-600 rounded-lg font-bold text-xs uppercase hover:bg-red-500 transition-colors">Rejoindre</button>}
-                    {user.team === Team.B && !user.isCaptain && <button onClick={becomeCaptain} className="w-full py-2 border border-red-500 text-red-500 rounded-lg font-bold text-xs uppercase hover:bg-red-500 hover:text-white transition-all mt-2">Devenir Capitaine</button>}
-                    {user.team === Team.B && user.isCaptain && (
-                      <div className="mt-2 flex gap-2">
-                        <input value={teamNameInput} onChange={e => setTeamNameInput(e.target.value)} placeholder="Nom d'équipe" className="flex-1 bg-black border border-red-500/30 rounded-lg px-2 text-xs text-white" />
-                        <button onClick={updateTeamName} className="p-2 bg-red-600 rounded-lg"><i className="fas fa-check text-xs"></i></button>
-                      </div>
-                    )}
-                  </div>
+                  <TeamEditSection team={Team.A} room={room} user={user} handleAction={handleAction} />
+                  <TeamEditSection team={Team.B} room={room} user={user} handleAction={handleAction} />
                 </div>
 
                 <div className="text-center pt-4">
@@ -158,6 +156,7 @@ const App: React.FC = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [pin, setPin] = useState('');
+  const handleActionRef = useRef<any>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -295,8 +294,10 @@ const App: React.FC = () => {
         return;
 
       case 'SET_TEAM_NAME':
-        if (payload.team === Team.A) next.teamAName = payload.name.toUpperCase();
-        else next.teamBName = payload.name.toUpperCase();
+        if (!payload.name || !payload.name.trim()) break;
+        const finalName = payload.name.trim().toUpperCase();
+        if (payload.team === Team.A) next.teamAName = finalName;
+        else if (payload.team === Team.B) next.teamBName = finalName;
         break;
       
       case 'UPDATE_SCORE':
@@ -310,6 +311,10 @@ const App: React.FC = () => {
         
       case 'SET_ACTIVE_TEAM':
         next.activeTeam = payload.team;
+        break;
+
+      case 'REMOVE_PLAYER':
+        next.users = next.users.filter(u => u.id !== payload.userId);
         break;
 
       case 'ADD_PLAYER_IF_NOT_EXISTS':
@@ -334,6 +339,10 @@ const App: React.FC = () => {
   }, [room, session, profile]);
 
   useEffect(() => {
+    handleActionRef.current = handleAction;
+  }, [handleAction]);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) fetchProfile(session.user.id);
@@ -344,12 +353,14 @@ const App: React.FC = () => {
       if (session) fetchProfile(session.user.id);
       else {
         setProfile(null);
-        handleAction('REMOVE_PLAYER', { userId: session?.user?.id });
+        if (handleActionRef.current) {
+          handleActionRef.current('REMOVE_PLAYER', { userId: session?.user?.id });
+        }
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [handleAction]);
+  }, []);
 
   useEffect(() => {
     if (session && profile && room) {
