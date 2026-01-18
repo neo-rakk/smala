@@ -80,12 +80,23 @@ const GamePage: React.FC<{
   user: User | null,
   isAdmin: boolean,
   handleAction: (type: string, payload: any) => Promise<void>,
-  setShowLogin: (show: boolean) => void
-}> = ({ room, user, isAdmin, handleAction, setShowLogin }) => {
+  setShowLogin: (show: boolean) => void,
+  onLogoutAdmin: () => void
+}> = ({ room, user, isAdmin, handleAction, setShowLogin, onLogoutAdmin }) => {
+  const [showLobby, setShowLobby] = useState(true);
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-hidden relative font-sans">
       {!isAdmin && (
         <div className="fixed bottom-4 right-4 flex gap-2 z-[200]">
+           {room?.state === GameState.LOBBY && user && !showLobby && (
+             <button
+               onClick={() => setShowLobby(true)}
+               className="px-4 h-10 rounded-full bg-yellow-600 hover:bg-yellow-500 text-white flex items-center justify-center transition-all border border-white/10 text-[10px] font-black uppercase tracking-tighter"
+             >
+               GESTION ÉQUIPE
+             </button>
+           )}
            <Link to="/leaderboard" className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10">
             <i className="fas fa-trophy text-yellow-500/40 text-sm"></i>
           </Link>
@@ -105,7 +116,7 @@ const GamePage: React.FC<{
             onAction={handleAction}
             isPaused={false}
             onTogglePause={() => {}}
-            onLogout={() => setIsAdmin(false)}
+            onLogout={onLogoutAdmin}
           />
         </div>
       )}
@@ -118,20 +129,28 @@ const GamePage: React.FC<{
           </div>
         ) : (
           <>
-            {room.state === GameState.LOBBY && user && (
-              <div className="z-10 bg-slate-900/80 backdrop-blur-xl p-8 rounded-[2rem] border-2 border-white/5 shadow-2xl w-full max-w-2xl space-y-8 animate-in zoom-in duration-500">
-                <div className="text-center">
-                  <h2 className="text-4xl font-game text-yellow-500 uppercase">Préparation du Match</h2>
-                  <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">Bienvenue, {user.nickname}</p>
-                </div>
+            {room.state === GameState.LOBBY && user && showLobby && (
+              <div className="z-[300] fixed inset-0 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+                <div className="bg-slate-900/95 backdrop-blur-xl p-8 rounded-[2rem] border-2 border-white/5 shadow-2xl w-full max-w-2xl space-y-8 animate-in zoom-in duration-500">
+                  <div className="text-center">
+                    <h2 className="text-4xl font-game text-yellow-500 uppercase">Préparation du Match</h2>
+                    <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">Bienvenue, {user.nickname}</p>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <TeamEditSection team={Team.A} room={room} user={user} handleAction={handleAction} />
-                  <TeamEditSection team={Team.B} room={room} user={user} handleAction={handleAction} />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <TeamEditSection team={Team.A} room={room} user={user} handleAction={handleAction} />
+                    <TeamEditSection team={Team.B} room={room} user={user} handleAction={handleAction} />
+                  </div>
 
-                <div className="text-center pt-4">
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest">Seulement 4 joueurs par équipe. Les autres peuvent observer.</p>
+                  <div className="text-center space-y-4">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">Seulement 4 joueurs par équipe. Les autres peuvent observer.</p>
+                    <button
+                      onClick={() => setShowLobby(false)}
+                      className="px-12 py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-game text-xl rounded-xl shadow-xl transition-all active:scale-95"
+                    >
+                      OK, JE SUIS PRÊT !
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -207,6 +226,10 @@ const App: React.FC = () => {
     const currentQuestion = next.activeQuestions.find(q => q.id === next.currentQuestionId);
 
     switch (type) {
+      case 'INIT':
+        // Initialization handled by the 'if (!current)' block above
+        break;
+
       case 'START_GAME':
         next.state = GameState.ROUND;
         next.strikes = 0;
@@ -338,6 +361,15 @@ const App: React.FC = () => {
 
       case 'REMOVE_PLAYER':
         next.users = next.users.filter(u => u.id !== payload.userId);
+        break;
+
+      case 'ADD_PLAYER':
+        if (payload.user) {
+          const exists = next.users.find(u => u.id === payload.user.id);
+          if (!exists) {
+            next.users.push(payload.user);
+          }
+        }
         break;
 
       case 'ADD_PLAYER_IF_NOT_EXISTS':
@@ -500,6 +532,7 @@ const App: React.FC = () => {
               isAdmin={isAdmin}
               handleAction={handleAction}
               setShowLogin={setShowLogin}
+              onLogoutAdmin={() => setIsAdmin(false)}
             />
           </>
         } />
