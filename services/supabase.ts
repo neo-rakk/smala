@@ -1,3 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
 
-// Fichier obsolète - Gestion locale via LocalDB.ts
-export const supabase = null;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Supabase credentials missing. Check your .env file.');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
