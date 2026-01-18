@@ -28,12 +28,15 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           // Create profile
           const { error: profileError } = await supabase
             .from('profiles')
-            .insert([{ id: data.user.id, nickname }]);
+            .upsert([{ id: data.user.id, nickname: nickname.toUpperCase() }]);
           if (profileError) throw profileError;
         }
         alert('Compte créé ! Vous pouvez vous connecter.');
         setIsSignUp(false);
       } else {
+        // Try sign out first to clear any stale state
+        await supabase.auth.signOut();
+
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,

@@ -135,7 +135,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
             )}
           </div>
         )}
-        {/* Reste du composant identique... */}
         {activeTab === 'JOUEURS' && (
           <div className="space-y-4">
             <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 space-y-3">
@@ -162,10 +161,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => onAction('SET_PLAYER_TEAM', { userId: u.id, team: Team.A })} className="w-6 h-6 rounded bg-green-900/40 text-green-500 text-[8px] font-bold">A</button>
-                    <button onClick={() => onAction('SET_PLAYER_TEAM', { userId: u.id, team: Team.B })} className="w-6 h-6 rounded bg-red-900/40 text-red-500 text-[8px] font-bold">B</button>
-                    <button onClick={() => onAction('SET_CAPTAIN', { userId: u.id })} className="w-6 h-6 rounded bg-yellow-900/40 text-yellow-500 text-[8px]"><i className="fas fa-crown"></i></button>
-                    <button onClick={() => onAction('REMOVE_PLAYER', { userId: u.id })} className="w-6 h-6 rounded bg-slate-800 text-slate-400 text-[8px]"><i className="fas fa-trash"></i></button>
+                    <button onClick={() => onAction('SET_PLAYER_TEAM', { userId: u.id, team: Team.A })} className="w-6 h-6 rounded bg-green-900/40 text-green-500 text-[8px] font-bold hover:bg-green-600 hover:text-white transition-colors">A</button>
+                    <button onClick={() => onAction('SET_PLAYER_TEAM', { userId: u.id, team: Team.B })} className="w-6 h-6 rounded bg-red-900/40 text-red-500 text-[8px] font-bold hover:bg-red-600 hover:text-white transition-colors">B</button>
+                    <button onClick={() => onAction('SET_PLAYER_TEAM', { userId: u.id, team: Team.NONE })} className="w-6 h-6 rounded bg-slate-800 text-slate-400 text-[8px] font-bold hover:bg-slate-700 hover:text-white transition-colors">SB</button>
+                    <button onClick={() => onAction('SET_CAPTAIN', { userId: u.id })} className="w-6 h-6 rounded bg-yellow-900/40 text-yellow-500 text-[8px] hover:bg-yellow-600 hover:text-white transition-colors"><i className="fas fa-crown"></i></button>
+                    <button onClick={() => onAction('REMOVE_PLAYER', { userId: u.id })} className="w-6 h-6 rounded bg-red-900/20 text-red-400 text-[8px] hover:bg-red-600 hover:text-white transition-colors"><i className="fas fa-trash"></i></button>
                   </div>
                 </div>
               ))}

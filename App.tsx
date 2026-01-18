@@ -100,7 +100,13 @@ const GamePage: React.FC<{
 
       {isAdmin && room && (
         <div className="md:w-[380px] lg:w-[420px] bg-slate-900 border-r border-slate-800 p-4 overflow-y-auto shadow-2xl z-20 shrink-0">
-          <AdminPanel room={room} onAction={handleAction} isPaused={false} onTogglePause={() => {}} onLogout={() => {}} />
+          <AdminPanel
+            room={room}
+            onAction={handleAction}
+            isPaused={false}
+            onTogglePause={() => {}}
+            onLogout={() => setIsAdmin(false)}
+          />
         </div>
       )}
 
@@ -159,8 +165,25 @@ const App: React.FC = () => {
   const handleActionRef = useRef<any>(null);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) setProfile(data);
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (error) {
+      console.warn('Profile not found, attempting to create one...');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const nickname = user.email?.split('@')[0].toUpperCase() || 'JOUEUR';
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert([{ id: user.id, nickname }])
+          .select()
+          .single();
+
+        if (!insertError && newProfile) {
+          setProfile(newProfile);
+        }
+      }
+    } else if (data) {
+      setProfile(data);
+    }
   };
 
   const handleAction = useCallback(async (type: string, payload: any) => {
@@ -348,14 +371,16 @@ const App: React.FC = () => {
       if (session) fetchProfile(session.user.id);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event, session?.user?.id);
       setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else {
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
         setProfile(null);
-        if (handleActionRef.current) {
-          handleActionRef.current('REMOVE_PLAYER', { userId: session?.user?.id });
-        }
+        // We don't necessarily want to remove the player from the room here
+        // because we don't have their ID anymore in 'session'.
+        // The cleanup should probably be handled differently or by the admin.
       }
     });
 
@@ -370,6 +395,13 @@ const App: React.FC = () => {
       }
     }
   }, [session, profile, room, handleAction]);
+
+  useEffect(() => {
+    if (session) {
+      setShowAuth(false);
+      setShowLogin(false);
+    }
+  }, [session]);
 
   useEffect(() => {
     const init = async () => {
@@ -447,10 +479,16 @@ const App: React.FC = () => {
             {session && !isAdmin && (
                <div className="fixed top-4 right-4 z-[200] flex items-center gap-4">
                   <div className="bg-slate-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-slate-950 font-black uppercase">{profile?.nickname?.[0]}</div>
-                    <span className="text-white text-xs font-bold uppercase tracking-widest">{profile?.nickname}</span>
+                    {profile ? (
+                      <>
+                        <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-slate-950 font-black uppercase">{profile?.nickname?.[0]}</div>
+                        <span className="text-white text-xs font-bold uppercase tracking-widest">{profile?.nickname}</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-500 text-[10px] animate-pulse">CHARGEMENT...</span>
+                    )}
                   </div>
-                  <button onClick={() => supabase.auth.signOut()} className="text-slate-500 hover:text-red-500 transition-colors">
+                  <button onClick={() => { supabase.auth.signOut(); window.location.reload(); }} className="text-slate-500 hover:text-red-500 transition-colors">
                     <i className="fas fa-sign-out-alt"></i>
                   </button>
                </div>
