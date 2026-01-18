@@ -159,52 +159,10 @@ const App: React.FC = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [pin, setPin] = useState('');
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else {
-        setProfile(null);
-        handleAction('REMOVE_PLAYER', { userId: session?.user?.id });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [handleAction]);
-
-  useEffect(() => {
-    if (session && profile && room) {
-      const exists = room.users.find(u => u.id === session.user.id);
-      if (!exists) {
-        handleAction('ADD_PLAYER_IF_NOT_EXISTS', {});
-      }
-    }
-  }, [session, profile, room, handleAction]);
-
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) setProfile(data);
   };
-
-  useEffect(() => {
-    const init = async () => {
-      const state = await localDB.getState();
-      if (state) setRoom(state);
-    };
-    init();
-
-    const unsubscribe = localDB.subscribe((newState) => {
-      setRoom(newState);
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, []);
 
   const handleAction = useCallback(async (type: string, payload: any) => {
     const current = room || await localDB.getState();
@@ -374,6 +332,48 @@ const App: React.FC = () => {
     await localDB.saveState(next);
     setRoom(next);
   }, [room, session, profile]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
+      else {
+        setProfile(null);
+        handleAction('REMOVE_PLAYER', { userId: session?.user?.id });
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [handleAction]);
+
+  useEffect(() => {
+    if (session && profile && room) {
+      const exists = room.users.find(u => u.id === session.user.id);
+      if (!exists) {
+        handleAction('ADD_PLAYER_IF_NOT_EXISTS', {});
+      }
+    }
+  }, [session, profile, room, handleAction]);
+
+  useEffect(() => {
+    const init = async () => {
+      const state = await localDB.getState();
+      if (state) setRoom(state);
+    };
+    init();
+
+    const unsubscribe = localDB.subscribe((newState) => {
+      setRoom(newState);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handleAdminLogin = () => {
     if (pin === '2985') {
