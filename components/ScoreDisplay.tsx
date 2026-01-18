@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Team } from '../types';
 
@@ -9,17 +8,23 @@ interface ScoreDisplayProps {
 }
 
 const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ name, score, team }) => {
-  const isTeamA = team === Team.A;
-  
   return (
-    <div className={`flex flex-col ${isTeamA ? 'items-start' : 'items-end'} w-full`}>
-      <div className={`text-[8px] md:text-xs font-black uppercase tracking-widest text-slate-500 mb-1 truncate w-full ${isTeamA ? 'text-left' : 'text-right'}`}>
-        {name}
+    <div className={`relative p-2 md:p-6 rounded-[1rem] md:rounded-[2rem] border-2 md:border-8 shadow-2xl overflow-hidden group transition-all duration-300 ${
+      team === Team.A
+        ? 'bg-gradient-to-br from-emerald-950 to-slate-900 border-emerald-600 shadow-emerald-900/20'
+        : 'bg-gradient-to-br from-red-950 to-slate-900 border-red-600 shadow-red-900/20'
+    }`}>
+      <div className="flex flex-col items-center">
+        <span className="text-[10px] md:text-xl font-black text-white/40 uppercase tracking-[0.2em] mb-1">{name}</span>
+        <span className={`text-3xl md:text-8xl font-game leading-none gold-glow ${
+          team === Team.A ? 'text-emerald-400' : 'text-red-400'
+        }`}>
+          {score}
+        </span>
       </div>
-      <div className={`relative w-full h-10 md:h-20 bg-slate-950 border-2 md:border-4 ${isTeamA ? 'border-green-600' : 'border-red-600'} rounded-lg md:rounded-2xl flex items-center justify-center overflow-hidden shadow-lg`}>
-        <div className={`absolute inset-0 opacity-20 ${isTeamA ? 'bg-green-600' : 'bg-red-600'}`}></div>
-        <span className="relative font-game text-xl md:text-5xl text-white gold-glow">{score}</span>
-      </div>
+      <div className={`absolute top-0 ${team === Team.A ? 'left-0' : 'right-0'} w-1 md:w-3 h-full ${
+        team === Team.A ? 'bg-emerald-500' : 'bg-red-500'
+      }`}></div>
     </div>
   );
 };

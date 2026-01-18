@@ -3,7 +3,6 @@ import fs from 'fs';
 import path from 'path';
 
 async function init() {
-  // Load .env if it exists (for local development)
   const envPath = path.resolve(process.cwd(), '.env');
   if (fs.existsSync(envPath)) {
     const envContent = fs.readFileSync(envPath, 'utf8');
@@ -29,7 +28,7 @@ async function init() {
   const sql = postgres(connectionString, { ssl: 'require' });
 
   try {
-    console.log('📦 Creating table "game_state" if it doesn\'t exist...');
+    console.log('📦 Creating table "game_state"...');
     await sql`
       CREATE TABLE IF NOT EXISTS game_state (
         id text PRIMARY KEY,
@@ -38,23 +37,62 @@ async function init() {
       );
     `;
 
-    console.log('🔒 Disabling RLS for "game_state" (simplification)...');
+    console.log('📦 Creating table "profiles"...');
+    await sql`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+        nickname text,
+        avatar_url text,
+        updated_at timestamp with time zone DEFAULT now()
+      );
+    `;
+
+    console.log('📦 Creating table "teams"...');
+    await sql`
+      CREATE TABLE IF NOT EXISTS teams (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        name text,
+        captain_id uuid REFERENCES profiles(id),
+        created_at timestamp with time zone DEFAULT now()
+      );
+    `;
+
+    console.log('📦 Creating table "leaderboard"...');
+    await sql`
+      CREATE TABLE IF NOT EXISTS leaderboard (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        team_name text NOT NULL,
+        score integer NOT NULL,
+        created_at timestamp with time zone DEFAULT now()
+      );
+    `;
+
+    console.log('🔒 Disabling RLS for simplicity (Demo mode)...');
     await sql`ALTER TABLE game_state DISABLE ROW LEVEL SECURITY;`;
+    await sql`ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;`;
+    await sql`ALTER TABLE teams DISABLE ROW LEVEL SECURITY;`;
+    await sql`ALTER TABLE leaderboard DISABLE ROW LEVEL SECURITY;`;
 
     console.log('📡 Enabling Realtime for "game_state"...');
-    // Check if table is already in publication to avoid errors
     const [existing] = await sql`
       SELECT 1 FROM pg_publication_tables
       WHERE pubname = 'supabase_realtime'
       AND schemaname = 'public'
       AND tablename = 'game_state';
     `;
-
     if (!existing) {
       await sql`ALTER PUBLICATION supabase_realtime ADD TABLE game_state;`;
-      console.log('✅ Realtime enabled.');
-    } else {
-      console.log('ℹ️ Realtime already enabled.');
+    }
+
+    // Also enable for leaderboard to have live updates if someone is watching
+    const [existingLb] = await sql`
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'leaderboard';
+    `;
+    if (!existingLb) {
+      await sql`ALTER PUBLICATION supabase_realtime ADD TABLE leaderboard;`;
     }
 
     console.log('✨ Database initialization complete!');
