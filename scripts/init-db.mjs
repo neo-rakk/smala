@@ -20,8 +20,9 @@ async function init() {
   const connectionString = process.env.POSTGRES_URL;
 
   if (!connectionString) {
-    console.error('❌ POSTGRES_URL is missing in environment variables.');
-    process.exit(1);
+    console.warn('⚠️ POSTGRES_URL is missing. Skipping automatic database initialization.');
+    console.warn('To enable automatic schema creation, set POSTGRES_URL in your environment variables.');
+    return; // Exit function gracefully instead of process.exit(1)
   }
 
   console.log('🚀 Connecting to database...');

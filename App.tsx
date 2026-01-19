@@ -181,7 +181,6 @@ const App: React.FC = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [pin, setPin] = useState('');
-  const handleActionRef = useRef<any>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -261,7 +260,9 @@ const App: React.FC = () => {
             next.roundScore = 0;
             next.strikes = 0;
             next.activeTeam = Team.NONE;
-            if (next.currentQuestionId > next.maxRounds) next.state = GameState.FINISHED;
+            if (next.currentQuestionId > next.maxRounds || next.currentQuestionId > next.activeQuestions.length) {
+              next.state = GameState.FINISHED;
+            }
             break;
           }
 
@@ -275,7 +276,9 @@ const App: React.FC = () => {
             next.roundScore = 0;
             next.strikes = 0;
             next.activeTeam = Team.NONE;
-            if (next.currentQuestionId > next.maxRounds) next.state = GameState.FINISHED;
+            if (next.currentQuestionId > next.maxRounds || next.currentQuestionId > next.activeQuestions.length) {
+              next.state = GameState.FINISHED;
+            }
           }
         }
         break;
@@ -292,7 +295,9 @@ const App: React.FC = () => {
           next.roundScore = 0;
           next.strikes = 0;
           next.activeTeam = Team.NONE;
-          if (next.currentQuestionId > next.maxRounds) next.state = GameState.FINISHED;
+          if (next.currentQuestionId > next.maxRounds || next.currentQuestionId > next.activeQuestions.length) {
+            next.state = GameState.FINISHED;
+          }
           break;
         }
         next.strikes = Math.min(3, next.strikes + 1);
@@ -314,7 +319,9 @@ const App: React.FC = () => {
         next.roundScore = 0;
         next.strikes = 0;
         next.activeTeam = Team.NONE;
-        if (next.currentQuestionId > next.maxRounds) next.state = GameState.FINISHED;
+        if (next.currentQuestionId > next.maxRounds || next.currentQuestionId > next.activeQuestions.length) {
+          next.state = GameState.FINISHED;
+        }
         break;
 
       case 'SET_PLAYER_TEAM':
@@ -352,7 +359,7 @@ const App: React.FC = () => {
         break;
 
       case 'SET_MAX_ROUNDS':
-        next.maxRounds = payload.count;
+        next.maxRounds = Math.min(payload.count, next.activeQuestions.length);
         break;
         
       case 'SET_ACTIVE_TEAM':
@@ -394,10 +401,6 @@ const App: React.FC = () => {
   }, [room, session, profile]);
 
   useEffect(() => {
-    handleActionRef.current = handleAction;
-  }, [handleAction]);
-
-  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) fetchProfile(session.user.id);
@@ -437,12 +440,26 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      const state = await localDB.getState();
-      if (state) setRoom(state);
+      let state = await localDB.getState();
+      if (!state) {
+        console.log("No game state found, initializing...");
+        const freshQuestions = JSON.parse(JSON.stringify(INITIAL_QUESTIONS)).map((q: any) => ({
+          ...q, answers: q.answers.map((a: any) => ({ ...a, revealed: false }))
+        }));
+        state = {
+          code: "LIVE-DZ", state: GameState.LOBBY, hostId: 'admin',
+          teamAName: "FAMILLE A", teamBName: "FAMILLE B", teamAScore: 0, teamBScore: 0,
+          roundScore: 0, strikes: 0, currentQuestionId: 1, maxRounds: 3,
+          activeTeam: Team.NONE, diceResults: {}, users: [], activeQuestions: freshQuestions
+        };
+        await localDB.saveState(state);
+      }
+      setRoom(state);
     };
     init();
 
     const unsubscribe = localDB.subscribe((newState) => {
+      console.log("Supabase Sync Update:", newState);
       setRoom(newState);
     });
     return () => {
