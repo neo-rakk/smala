@@ -84,6 +84,8 @@ async function init() {
           END IF;
       END $$;
     `;
+    console.log('🧹 Cleaning up orphaned profiles...');
+    await sql`DELETE FROM profiles WHERE id NOT IN (SELECT id FROM user_accounts);`;
     await sql`ALTER TABLE profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES user_accounts(id) ON DELETE CASCADE;`;
 
     console.log('📡 Enabling Realtime...');

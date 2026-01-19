@@ -85,11 +85,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         onSuccess();
       }
     } catch (error: any) {
-      if (error.code === '23503' && error.message?.includes('profiles')) {
-        alert("Une erreur de configuration a été détectée. Veuillez contacter l'administrateur pour mettre à jour la base de données (Schéma SQL).");
-      } else {
-        alert(error.message || 'Une erreur est survenue');
-      }
+      alert(error.message || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }

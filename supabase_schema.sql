@@ -52,6 +52,9 @@ BEGIN
     END IF;
 END $$;
 
+-- Suppression des profils orphelins (sans compte correspondant)
+DELETE FROM profiles WHERE id NOT IN (SELECT id FROM user_accounts);
+
 ALTER TABLE profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES user_accounts(id) ON DELETE CASCADE;
 
 -- 8. Insertion de l'état initial du jeu
