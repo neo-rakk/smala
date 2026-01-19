@@ -43,7 +43,21 @@ ALTER TABLE user_accounts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE leaderboard DISABLE ROW LEVEL SECURITY;
 
--- 7. Insertion de l'état initial du jeu
+-- 7. Correction de la contrainte de clé étrangère pour profiles (si nécessaire)
+-- Certaines installations peuvent avoir une contrainte pointant vers 'auth.users' par défaut
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'profiles_id_fkey') THEN
+        ALTER TABLE profiles DROP CONSTRAINT profiles_id_fkey;
+    END IF;
+END $$;
+
+-- Suppression des profils orphelins (sans compte correspondant)
+DELETE FROM profiles WHERE id NOT IN (SELECT id FROM user_accounts);
+
+ALTER TABLE profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES user_accounts(id) ON DELETE CASCADE;
+
+-- 8. Insertion de l'état initial du jeu
 INSERT INTO game_state (id, payload)
 VALUES ('live-dz', '{"currentQuestionIndex": 0, "status": "waiting", "teams": {"A": {"name": "Équipe 1", "score": 0, "strikes": 0}, "B": {"name": "Équipe 2", "score": 0, "strikes": 0}}, "revealedAnswers": []}')
 ON CONFLICT (id) DO NOTHING;

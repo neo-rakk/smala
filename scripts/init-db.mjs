@@ -75,6 +75,19 @@ async function init() {
     await sql`ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;`;
     await sql`ALTER TABLE leaderboard DISABLE ROW LEVEL SECURITY;`;
 
+    console.log('🔧 Fixing profiles foreign key...');
+    await sql`
+      DO $$
+      BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'profiles_id_fkey') THEN
+              ALTER TABLE profiles DROP CONSTRAINT profiles_id_fkey;
+          END IF;
+      END $$;
+    `;
+    console.log('🧹 Cleaning up orphaned profiles...');
+    await sql`DELETE FROM profiles WHERE id NOT IN (SELECT id FROM user_accounts);`;
+    await sql`ALTER TABLE profiles ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES user_accounts(id) ON DELETE CASCADE;`;
+
     console.log('📡 Enabling Realtime...');
     await sql`ALTER PUBLICATION supabase_realtime ADD TABLE game_state;`.catch(() => {});
     await sql`ALTER PUBLICATION supabase_realtime ADD TABLE leaderboard;`.catch(() => {});
