@@ -21,6 +21,9 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: 'https://smala.vercel.app',
+          },
         });
         if (error) throw error;
 
@@ -57,6 +60,18 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         {isSignUp ? 'Créer un compte' : 'Connexion Joueur'}
       </h2>
       <form onSubmit={handleAuth} className="space-y-4">
+        {isSignUp && (
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => window.open('https://yopmail.com/fr/email-generator', '_blank')}
+              className="w-full py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-[10px] font-bold uppercase hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center gap-2"
+            >
+              <i className="fas fa-magic text-yellow-500"></i>
+              Générer un email jetable (YOPmail)
+            </button>
+          </div>
+        )}
         {isSignUp && (
           <input
             type="text"

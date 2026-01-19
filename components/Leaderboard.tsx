@@ -3,9 +3,27 @@ import { supabase } from '../services/supabase';
 import { LeaderboardEntry } from '../types';
 import { Link } from 'react-router-dom';
 
-const Leaderboard: React.FC = () => {
+interface LeaderboardProps {
+  isAdmin?: boolean;
+}
+
+const Leaderboard: React.FC<LeaderboardProps> = ({ isAdmin }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleDeleteScore = async (id: string) => {
+    if (!window.confirm('Supprimer ce score définitivement ?')) return;
+
+    const { error } = await supabase
+      .from('leaderboard')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting score:', error);
+      alert('Erreur lors de la suppression');
+    }
+  };
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -58,6 +76,7 @@ const Leaderboard: React.FC = () => {
                 <th className="p-4 md:p-6">Équipe</th>
                 <th className="p-4 md:p-6 text-center">Score</th>
                 <th className="p-4 md:p-6 text-right">Date</th>
+                {isAdmin && <th className="p-4 md:p-6 text-center">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -95,6 +114,17 @@ const Leaderboard: React.FC = () => {
                     <td className="p-4 md:p-6 text-right text-slate-500 text-xs md:text-sm">
                       {new Date(entry.created_at).toLocaleDateString('fr-FR')}
                     </td>
+                    {isAdmin && (
+                      <td className="p-4 md:p-6 text-center">
+                        <button
+                          onClick={() => handleDeleteScore(entry.id)}
+                          className="text-slate-600 hover:text-red-500 transition-colors p-2"
+                          title="Supprimer le score"
+                        >
+                          <i className="fas fa-trash-alt"></i>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

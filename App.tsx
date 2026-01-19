@@ -87,27 +87,28 @@ const GamePage: React.FC<{
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-hidden relative font-sans">
-      {!isAdmin && (
-        <div className="fixed bottom-4 right-4 flex gap-2 z-[200]">
-           {room?.state === GameState.LOBBY && user && !showLobby && (
-             <button
-               onClick={() => setShowLobby(true)}
-               className="px-4 h-10 rounded-full bg-yellow-600 hover:bg-yellow-500 text-white flex items-center justify-center transition-all border border-white/10 text-[10px] font-black uppercase tracking-tighter"
-             >
-               GESTION ÉQUIPE
-             </button>
-           )}
-           <Link to="/leaderboard" className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10">
+      <div className="fixed bottom-4 right-4 flex gap-2 z-[200]">
+          {room?.state === GameState.LOBBY && user && !showLobby && (
+            <button
+              onClick={() => setShowLobby(true)}
+              className="px-4 h-10 rounded-full bg-yellow-600 hover:bg-yellow-500 text-white flex items-center justify-center transition-all border border-white/10 text-[10px] font-black uppercase tracking-tighter"
+            >
+              GESTION ÉQUIPE
+            </button>
+          )}
+          <Link to="/leaderboard" className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10" title="Leaderboard">
             <i className="fas fa-trophy text-yellow-500/40 text-sm"></i>
           </Link>
-          <button
-            onClick={() => setShowLogin(true)}
-            className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10"
-          >
-            <i className="fas fa-cog text-white/40 text-sm"></i>
-          </button>
-        </div>
-      )}
+          {!isAdmin && (
+            <button
+              onClick={() => setShowLogin(true)}
+              className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10"
+              title="Régie"
+            >
+              <i className="fas fa-cog text-white/40 text-sm"></i>
+            </button>
+          )}
+      </div>
 
       {isAdmin && room && (
         <div className="md:w-[380px] lg:w-[420px] bg-slate-900 border-r border-slate-800 p-4 overflow-y-auto shadow-2xl z-20 shrink-0">
@@ -483,7 +484,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/leaderboard" element={<Leaderboard isAdmin={isAdmin} />} />
         <Route path="/" element={
           <>
             {showAuth && !session && (
