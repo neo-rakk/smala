@@ -41,6 +41,7 @@ export interface User {
 export interface Profile {
   id: string;
   nickname: string;
+  role?: string;
   avatar_url?: string;
 }
 
@@ -52,7 +53,7 @@ export interface TeamData {
 
 export interface LeaderboardEntry {
   id: string;
-  team_name: string;
+  nickname: string;
   score: number;
   created_at: string;
 }

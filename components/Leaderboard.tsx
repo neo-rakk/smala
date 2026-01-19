@@ -82,11 +82,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ isAdmin }) => {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="p-12 text-center text-slate-500 animate-pulse">Chargement des champions...</td>
+                  <td colSpan={isAdmin ? 5 : 4} className="p-12 text-center text-slate-500 animate-pulse">Chargement des champions...</td>
                 </tr>
               ) : entries.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-12 text-center text-slate-500">Aucun score enregistré pour le moment.</td>
+                  <td colSpan={isAdmin ? 5 : 4} className="p-12 text-center text-slate-500">Aucun score enregistré pour le moment.</td>
                 </tr>
               ) : (
                 entries.map((entry, index) => (
@@ -103,7 +103,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ isAdmin }) => {
                     </td>
                     <td className="p-4 md:p-6">
                       <div className="font-bold text-white group-hover:text-yellow-500 transition-colors uppercase">
-                        {entry.team_name}
+                        {entry.nickname}
                       </div>
                     </td>
                     <td className="p-4 md:p-6 text-center">

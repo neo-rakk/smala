@@ -183,28 +183,6 @@ const App: React.FC = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [pin, setPin] = useState('');
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (error) {
-      console.warn('Profile not found, attempting to create one...');
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const nickname = user.email?.split('@')[0].toUpperCase() || 'JOUEUR';
-        const { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .insert([{ id: user.id, nickname }])
-          .select()
-          .single();
-
-        if (!insertError && newProfile) {
-          setProfile(newProfile);
-        }
-      }
-    } else if (data) {
-      setProfile(data);
-    }
-  };
-
   const handleAction = useCallback(async (type: string, payload: any) => {
     const current = room || await localDB.getState();
     
@@ -402,25 +380,20 @@ const App: React.FC = () => {
   }, [room, session, profile]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth event:", event, session?.user?.id);
-      setSession(session);
-      if (session) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-        // We don't necessarily want to remove the player from the room here
-        // because we don't have their ID anymore in 'session'.
-        // The cleanup should probably be handled differently or by the admin.
+    const savedSession = localStorage.getItem('game_session');
+    if (savedSession) {
+      try {
+        const sessionData = JSON.parse(savedSession);
+        if (sessionData.expiresAt > Date.now()) {
+          setSession({ user: { id: sessionData.userId } });
+          setProfile({ nickname: sessionData.nickname } as any);
+        } else {
+          localStorage.removeItem('game_session');
+        }
+      } catch (e) {
+        localStorage.removeItem('game_session');
       }
-    });
-
-    return () => subscription.unsubscribe();
+    }
   }, []);
 
   useEffect(() => {
@@ -538,7 +511,7 @@ const App: React.FC = () => {
                       <span className="text-slate-500 text-[10px] animate-pulse">CHARGEMENT...</span>
                     )}
                   </div>
-                  <button onClick={() => { supabase.auth.signOut(); window.location.reload(); }} className="text-slate-500 hover:text-red-500 transition-colors">
+                  <button onClick={() => { localStorage.removeItem('game_session'); window.location.reload(); }} className="text-slate-500 hover:text-red-500 transition-colors">
                     <i className="fas fa-sign-out-alt"></i>
                   </button>
                </div>

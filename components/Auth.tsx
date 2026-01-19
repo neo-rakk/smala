@@ -7,7 +7,7 @@ interface AuthProps {
 
 const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -18,33 +18,63 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: 'https://smala.vercel.app',
-          },
-        });
-        if (error) throw error;
+        // 1. Check if username exists
+        const { data: existing } = await supabase
+          .from('user_accounts')
+          .select('id')
+          .eq('username', username.trim().toLowerCase())
+          .maybeSingle();
 
-        if (data.user) {
-          // Create profile
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert([{ id: data.user.id, nickname: nickname.toUpperCase() }]);
-          if (profileError) throw profileError;
+        if (existing) {
+          throw new Error('Cet identifiant est déjà utilisé');
         }
+
+        // 2. Create profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .insert([{ nickname: nickname.toUpperCase() }])
+          .select()
+          .single();
+
+        if (profileError) throw profileError;
+
+        // 3. Create account
+        const { error: accountError } = await supabase
+          .from('user_accounts')
+          .insert([{
+            username: username.trim().toLowerCase(),
+            password,
+            profile_id: profile.id,
+            nickname: nickname.toUpperCase()
+          }]);
+
+        if (accountError) throw accountError;
+
         alert('Compte créé ! Vous pouvez vous connecter.');
         setIsSignUp(false);
       } else {
-        // Try sign out first to clear any stale state
-        await supabase.auth.signOut();
+        // Custom login
+        const { data: account, error: loginError } = await supabase
+          .from('user_accounts')
+          .select('*')
+          .eq('username', username.trim().toLowerCase())
+          .eq('password', password)
+          .maybeSingle();
 
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        if (loginError) throw loginError;
+        if (!account) {
+           throw new Error('Identifiant ou mot de passe incorrect');
+        }
+
+        // Store session in localStorage
+        const sessionData = {
+           userId: account.profile_id,
+           username: account.username,
+           nickname: account.nickname,
+           expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
+        };
+        localStorage.setItem('game_session', JSON.stringify(sessionData));
+
         onSuccess();
       }
     } catch (error: any) {
@@ -56,39 +86,33 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
   return (
     <div className="bg-slate-900 border-2 border-yellow-500 p-8 rounded-3xl w-full max-w-sm text-center space-y-6 shadow-2xl">
-      <h2 className="text-2xl font-game text-yellow-500 uppercase">
-        {isSignUp ? 'Créer un compte' : 'Connexion Joueur'}
-      </h2>
+      <div className="space-y-2">
+        <h2 className="text-2xl font-game text-yellow-500 uppercase">
+            {isSignUp ? 'Créer un compte' : 'Connexion Joueur'}
+        </h2>
+        <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+            {isSignUp ? 'Aucun email requis' : 'Accès instantané'}
+        </p>
+      </div>
+
       <form onSubmit={handleAuth} className="space-y-4">
-        {isSignUp && (
-          <div className="mb-2">
-            <button
-              type="button"
-              onClick={() => window.open('https://yopmail.com/fr/email-generator', '_blank')}
-              className="w-full py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-[10px] font-bold uppercase hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center gap-2"
-            >
-              <i className="fas fa-magic text-yellow-500"></i>
-              Générer un email jetable (YOPmail)
-            </button>
-          </div>
-        )}
         {isSignUp && (
           <input
             type="text"
             className="w-full bg-black border-2 border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500 outline-none transition-all"
-            placeholder="Pseudo"
+            placeholder="Pseudo (Affiché en jeu)"
             required
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
           />
         )}
         <input
-          type="email"
+          type="text"
           className="w-full bg-black border-2 border-slate-700 rounded-xl p-3 text-white focus:border-yellow-500 outline-none transition-all"
-          placeholder="Email"
+          placeholder="Identifiant"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
         />
         <input
           type="password"
