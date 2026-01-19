@@ -80,12 +80,23 @@ const GamePage: React.FC<{
   user: User | null,
   isAdmin: boolean,
   handleAction: (type: string, payload: any) => Promise<void>,
-  setShowLogin: (show: boolean) => void
-}> = ({ room, user, isAdmin, handleAction, setShowLogin }) => {
+  setShowLogin: (show: boolean) => void,
+  onLogoutAdmin: () => void
+}> = ({ room, user, isAdmin, handleAction, setShowLogin, onLogoutAdmin }) => {
+  const [showLobby, setShowLobby] = useState(true);
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-hidden relative font-sans">
       {!isAdmin && (
         <div className="fixed bottom-4 right-4 flex gap-2 z-[200]">
+           {room?.state === GameState.LOBBY && user && !showLobby && (
+             <button
+               onClick={() => setShowLobby(true)}
+               className="px-4 h-10 rounded-full bg-yellow-600 hover:bg-yellow-500 text-white flex items-center justify-center transition-all border border-white/10 text-[10px] font-black uppercase tracking-tighter"
+             >
+               GESTION ÉQUIPE
+             </button>
+           )}
            <Link to="/leaderboard" className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10">
             <i className="fas fa-trophy text-yellow-500/40 text-sm"></i>
           </Link>
@@ -100,7 +111,13 @@ const GamePage: React.FC<{
 
       {isAdmin && room && (
         <div className="md:w-[380px] lg:w-[420px] bg-slate-900 border-r border-slate-800 p-4 overflow-y-auto shadow-2xl z-20 shrink-0">
-          <AdminPanel room={room} onAction={handleAction} isPaused={false} onTogglePause={() => {}} onLogout={() => {}} />
+          <AdminPanel
+            room={room}
+            onAction={handleAction}
+            isPaused={false}
+            onTogglePause={() => {}}
+            onLogout={onLogoutAdmin}
+          />
         </div>
       )}
 
@@ -112,20 +129,28 @@ const GamePage: React.FC<{
           </div>
         ) : (
           <>
-            {room.state === GameState.LOBBY && user && (
-              <div className="z-10 bg-slate-900/80 backdrop-blur-xl p-8 rounded-[2rem] border-2 border-white/5 shadow-2xl w-full max-w-2xl space-y-8 animate-in zoom-in duration-500">
-                <div className="text-center">
-                  <h2 className="text-4xl font-game text-yellow-500 uppercase">Préparation du Match</h2>
-                  <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">Bienvenue, {user.nickname}</p>
-                </div>
+            {room.state === GameState.LOBBY && user && showLobby && (
+              <div className="z-[300] fixed inset-0 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+                <div className="bg-slate-900/95 backdrop-blur-xl p-8 rounded-[2rem] border-2 border-white/5 shadow-2xl w-full max-w-2xl space-y-8 animate-in zoom-in duration-500">
+                  <div className="text-center">
+                    <h2 className="text-4xl font-game text-yellow-500 uppercase">Préparation du Match</h2>
+                    <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">Bienvenue, {user.nickname}</p>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <TeamEditSection team={Team.A} room={room} user={user} handleAction={handleAction} />
-                  <TeamEditSection team={Team.B} room={room} user={user} handleAction={handleAction} />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <TeamEditSection team={Team.A} room={room} user={user} handleAction={handleAction} />
+                    <TeamEditSection team={Team.B} room={room} user={user} handleAction={handleAction} />
+                  </div>
 
-                <div className="text-center pt-4">
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest">Seulement 4 joueurs par équipe. Les autres peuvent observer.</p>
+                  <div className="text-center space-y-4">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">Seulement 4 joueurs par équipe. Les autres peuvent observer.</p>
+                    <button
+                      onClick={() => setShowLobby(false)}
+                      className="px-12 py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-game text-xl rounded-xl shadow-xl transition-all active:scale-95"
+                    >
+                      OK, JE SUIS PRÊT !
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -159,8 +184,25 @@ const App: React.FC = () => {
   const handleActionRef = useRef<any>(null);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) setProfile(data);
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (error) {
+      console.warn('Profile not found, attempting to create one...');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const nickname = user.email?.split('@')[0].toUpperCase() || 'JOUEUR';
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert([{ id: user.id, nickname }])
+          .select()
+          .single();
+
+        if (!insertError && newProfile) {
+          setProfile(newProfile);
+        }
+      }
+    } else if (data) {
+      setProfile(data);
+    }
   };
 
   const handleAction = useCallback(async (type: string, payload: any) => {
@@ -184,6 +226,10 @@ const App: React.FC = () => {
     const currentQuestion = next.activeQuestions.find(q => q.id === next.currentQuestionId);
 
     switch (type) {
+      case 'INIT':
+        // Initialization handled by the 'if (!current)' block above
+        break;
+
       case 'START_GAME':
         next.state = GameState.ROUND;
         next.strikes = 0;
@@ -317,6 +363,15 @@ const App: React.FC = () => {
         next.users = next.users.filter(u => u.id !== payload.userId);
         break;
 
+      case 'ADD_PLAYER':
+        if (payload.user) {
+          const exists = next.users.find(u => u.id === payload.user.id);
+          if (!exists) {
+            next.users.push(payload.user);
+          }
+        }
+        break;
+
       case 'ADD_PLAYER_IF_NOT_EXISTS':
         if (session && profile) {
           const exists = next.users.find(u => u.id === session.user.id);
@@ -348,14 +403,16 @@ const App: React.FC = () => {
       if (session) fetchProfile(session.user.id);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event, session?.user?.id);
       setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else {
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
         setProfile(null);
-        if (handleActionRef.current) {
-          handleActionRef.current('REMOVE_PLAYER', { userId: session?.user?.id });
-        }
+        // We don't necessarily want to remove the player from the room here
+        // because we don't have their ID anymore in 'session'.
+        // The cleanup should probably be handled differently or by the admin.
       }
     });
 
@@ -370,6 +427,13 @@ const App: React.FC = () => {
       }
     }
   }, [session, profile, room, handleAction]);
+
+  useEffect(() => {
+    if (session) {
+      setShowAuth(false);
+      setShowLogin(false);
+    }
+  }, [session]);
 
   useEffect(() => {
     const init = async () => {
@@ -447,10 +511,16 @@ const App: React.FC = () => {
             {session && !isAdmin && (
                <div className="fixed top-4 right-4 z-[200] flex items-center gap-4">
                   <div className="bg-slate-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-slate-950 font-black uppercase">{profile?.nickname?.[0]}</div>
-                    <span className="text-white text-xs font-bold uppercase tracking-widest">{profile?.nickname}</span>
+                    {profile ? (
+                      <>
+                        <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-slate-950 font-black uppercase">{profile?.nickname?.[0]}</div>
+                        <span className="text-white text-xs font-bold uppercase tracking-widest">{profile?.nickname}</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-500 text-[10px] animate-pulse">CHARGEMENT...</span>
+                    )}
                   </div>
-                  <button onClick={() => supabase.auth.signOut()} className="text-slate-500 hover:text-red-500 transition-colors">
+                  <button onClick={() => { supabase.auth.signOut(); window.location.reload(); }} className="text-slate-500 hover:text-red-500 transition-colors">
                     <i className="fas fa-sign-out-alt"></i>
                   </button>
                </div>
@@ -462,6 +532,7 @@ const App: React.FC = () => {
               isAdmin={isAdmin}
               handleAction={handleAction}
               setShowLogin={setShowLogin}
+              onLogoutAdmin={() => setIsAdmin(false)}
             />
           </>
         } />
