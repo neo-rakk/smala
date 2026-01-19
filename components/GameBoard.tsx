@@ -13,8 +13,10 @@ interface GameBoardProps {
 
 const GameBoard: React.FC<GameBoardProps> = ({ room }) => {
   const [showStrikeOverlay, setShowStrikeOverlay] = useState(false);
+  const [showGainOverlay, setShowGainOverlay] = useState<{team: Team, points: number} | null>(null);
   const [timer, setTimer] = useState(30);
   const prevStrikes = useRef(room.strikes);
+  const prevScores = useRef({ A: room.teamAScore, B: room.teamBScore });
   
   const currentQuestion = room.activeQuestions.find(q => q.id === room.currentQuestionId);
 
@@ -26,6 +28,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ room }) => {
     }
     prevStrikes.current = room.strikes;
   }, [room.strikes]);
+
+  useEffect(() => {
+    const gainA = room.teamAScore - prevScores.current.A;
+    const gainB = room.teamBScore - prevScores.current.B;
+
+    if (gainA > 0) {
+      setShowGainOverlay({ team: Team.A, points: gainA });
+      setTimeout(() => setShowGainOverlay(null), 3000);
+    } else if (gainB > 0) {
+      setShowGainOverlay({ team: Team.B, points: gainB });
+      setTimeout(() => setShowGainOverlay(null), 3000);
+    }
+
+    prevScores.current = { A: room.teamAScore, B: room.teamBScore };
+  }, [room.teamAScore, room.teamBScore]);
 
   useEffect(() => {
     let interval: any;
@@ -49,6 +66,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ room }) => {
 
   return (
     <div className="w-full max-w-6xl flex flex-col items-center relative px-2 animate-in fade-in duration-700">
+      {/* Overlay Gain de Points */}
+      {showGainOverlay && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="text-center animate-in zoom-in duration-500">
+            <h2 className={`text-4xl md:text-8xl font-game uppercase mb-4 ${showGainOverlay.team === Team.A ? 'text-emerald-400' : 'text-red-400'}`}>
+              {showGainOverlay.team === Team.A ? room.teamAName : room.teamBName} GAGNE
+            </h2>
+            <div className="text-8xl md:text-[15rem] font-game text-yellow-500 drop-shadow-[0_0_50px_rgba(234,179,8,1)]">
+              +{showGainOverlay.points}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Overlay X Rouge */}
       {showStrikeOverlay && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none bg-red-950/20 backdrop-blur-[2px]">
@@ -63,7 +94,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ room }) => {
       {/* Header Scores */}
       <div className="flex justify-between w-full mb-6 md:mb-12 items-start gap-2 md:gap-6 px-4">
         {/* TEAM A */}
-        <div className={`transition-all duration-500 flex-1 ${room.activeTeam === Team.A ? 'scale-105' : 'opacity-40 grayscale-[0.5]'}`}>
+        <div className={`transition-all duration-500 flex-1 ${
+          room.activeTeam === Team.A
+            ? 'scale-125 opacity-100 z-20'
+            : room.activeTeam === Team.NONE
+              ? 'opacity-100'
+              : 'opacity-40 grayscale-[0.5]'
+        }`}>
           <ScoreDisplay name={room.teamAName} score={room.teamAScore} team={Team.A} />
           <div className="mt-3 flex flex-wrap gap-1 justify-start">
             {teamAPlayers.map(u => (
@@ -93,7 +130,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ room }) => {
         </div>
 
         {/* TEAM B */}
-        <div className={`transition-all duration-500 flex-1 ${room.activeTeam === Team.B ? 'scale-105' : 'opacity-40 grayscale-[0.5]'}`}>
+        <div className={`transition-all duration-500 flex-1 ${
+          room.activeTeam === Team.B
+            ? 'scale-125 opacity-100 z-20'
+            : room.activeTeam === Team.NONE
+              ? 'opacity-100'
+              : 'opacity-40 grayscale-[0.5]'
+        }`}>
           <ScoreDisplay name={room.teamBName} score={room.teamBScore} team={Team.B} />
           <div className="mt-3 flex flex-wrap gap-1 justify-end">
             {teamBPlayers.map(u => (
@@ -158,17 +201,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ room }) => {
               <h2 className="text-5xl md:text-[14rem] font-game text-yellow-500 drop-shadow-[0_0_60px_rgba(234,179,8,0.8)] uppercase leading-none italic animate-bounce">LE CHAMPION !</h2>
             </div>
             <div className="flex flex-col md:flex-row gap-6 md:gap-24 w-full justify-center px-4">
-               <div className={`flex flex-col items-center transition-all duration-1000 ${room.teamAScore > room.teamBScore ? 'scale-125' : 'opacity-30 blur-[1px]'}`}>
-                  <span className="font-black text-green-500 uppercase mb-4 text-xs md:text-3xl tracking-[0.4em]">{room.teamAName}</span>
-                  <div className="bg-slate-900 p-8 md:p-20 rounded-[2.5rem] md:rounded-[5rem] border-4 md:border-[12px] border-green-600 shadow-[0_0_50px_rgba(22,163,74,0.3)]">
+               <div className={`flex flex-col items-center transition-all duration-1000 ${room.teamAScore >= room.teamBScore ? 'scale-125 z-10' : 'opacity-50 grayscale'}`}>
+                  <span className={`font-black uppercase mb-4 text-xs md:text-3xl tracking-[0.4em] ${room.teamAScore >= room.teamBScore ? 'text-green-500' : 'text-slate-500'}`}>{room.teamAName}</span>
+                  <div className={`bg-slate-900 p-8 md:p-20 rounded-[2.5rem] md:rounded-[5rem] border-4 md:border-[12px] shadow-[0_0_50px_rgba(22,163,74,0.3)] ${room.teamAScore >= room.teamBScore ? 'border-green-600' : 'border-slate-800'}`}>
                     <p className="text-white font-game text-6xl md:text-[14rem] leading-none">{room.teamAScore}</p>
                   </div>
+                  {room.teamAScore >= room.teamBScore && <div className="mt-4 text-yellow-500 font-game text-xl md:text-5xl animate-pulse">VAINQUEUR !</div>}
                </div>
-               <div className={`flex flex-col items-center transition-all duration-1000 ${room.teamBScore > room.teamAScore ? 'scale-125' : 'opacity-30 blur-[1px]'}`}>
-                  <span className="font-black text-red-500 uppercase mb-4 text-xs md:text-3xl tracking-[0.4em]">{room.teamBName}</span>
-                  <div className="bg-slate-900 p-8 md:p-20 rounded-[2.5rem] md:rounded-[5rem] border-4 md:border-[12px] border-red-600 shadow-[0_0_50px_rgba(220,38,38,0.3)]">
+               <div className={`flex flex-col items-center transition-all duration-1000 ${room.teamBScore >= room.teamAScore ? 'scale-125 z-10' : 'opacity-50 grayscale'}`}>
+                  <span className={`font-black uppercase mb-4 text-xs md:text-3xl tracking-[0.4em] ${room.teamBScore >= room.teamAScore ? 'text-red-500' : 'text-slate-500'}`}>{room.teamBName}</span>
+                  <div className={`bg-slate-900 p-8 md:p-20 rounded-[2.5rem] md:rounded-[5rem] border-4 md:border-[12px] shadow-[0_0_50px_rgba(220,38,38,0.3)] ${room.teamBScore >= room.teamAScore ? 'border-red-600' : 'border-slate-800'}`}>
                     <p className="text-white font-game text-6xl md:text-[14rem] leading-none">{room.teamBScore}</p>
                   </div>
+                  {room.teamBScore >= room.teamAScore && <div className="mt-4 text-yellow-500 font-game text-xl md:text-5xl animate-pulse">VAINQUEUR !</div>}
                </div>
             </div>
           </div>

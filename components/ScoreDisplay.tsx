@@ -16,10 +16,10 @@ const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ name, score, team }) => {
     }`}>
       <div className="flex flex-col items-center">
         <span className="text-[10px] md:text-xl font-black text-white/40 uppercase tracking-[0.2em] mb-1">{name}</span>
-        <span className={`text-3xl md:text-8xl font-game leading-none gold-glow ${
+        <span className={`text-3xl md:text-8xl font-game leading-none drop-shadow-lg ${
           team === Team.A ? 'text-emerald-400' : 'text-red-400'
         }`}>
-          {score}
+          {score ?? 0}
         </span>
       </div>
       <div className={`absolute top-0 ${team === Team.A ? 'left-0' : 'right-0'} w-1 md:w-3 h-full ${

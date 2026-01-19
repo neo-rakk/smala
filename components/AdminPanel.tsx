@@ -37,7 +37,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
       <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 flex justify-between items-center shadow-xl">
         <div>
           <h2 className="text-sm font-black text-yellow-500 uppercase">Régie Animateur</h2>
-          <p className="text-[10px] text-slate-400 font-bold tracking-widest">LIVE CONTROL v2.0</p>
+          <div className="flex gap-2 mt-1">
+             <span className="text-[10px] px-2 bg-emerald-600 text-white rounded-full font-bold">{room.teamAScore}</span>
+             <span className="text-[10px] px-2 bg-red-600 text-white rounded-full font-bold">{room.teamBScore}</span>
+          </div>
         </div>
         <button onClick={onLogout} className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors">
           <i className="fas fa-power-off"></i>
@@ -196,11 +199,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <p className="text-[9px] font-bold text-center text-green-500">{room.teamAName}</p>
+                  <div className="text-xl font-game text-center text-white bg-black py-2 rounded-lg border border-slate-700 mb-2">{room.teamAScore}</div>
                   <button onClick={() => onAction('UPDATE_SCORE', { team: Team.A, value: room.teamAScore + 10 })} className="w-full py-2 bg-slate-900 rounded-lg text-xs font-bold">+10</button>
                   <button onClick={() => onAction('UPDATE_SCORE', { team: Team.A, value: Math.max(0, room.teamAScore - 10) })} className="w-full py-2 bg-slate-900 rounded-lg text-xs font-bold text-slate-500">-10</button>
                 </div>
                 <div className="space-y-2">
                   <p className="text-[9px] font-bold text-center text-red-500">{room.teamBName}</p>
+                  <div className="text-xl font-game text-center text-white bg-black py-2 rounded-lg border border-slate-700 mb-2">{room.teamBScore}</div>
                   <button onClick={() => onAction('UPDATE_SCORE', { team: Team.B, value: room.teamBScore + 10 })} className="w-full py-2 bg-slate-900 rounded-lg text-xs font-bold">+10</button>
                   <button onClick={() => onAction('UPDATE_SCORE', { team: Team.B, value: Math.max(0, room.teamBScore - 10) })} className="w-full py-2 bg-slate-900 rounded-lg text-xs font-bold text-slate-500">-10</button>
                 </div>
