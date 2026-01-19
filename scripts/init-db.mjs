@@ -38,16 +38,6 @@ async function init() {
       );
     `;
 
-    console.log('📦 Creating table "profiles"...');
-    await sql`
-      CREATE TABLE IF NOT EXISTS profiles (
-        id uuid PRIMARY KEY,
-        nickname text UNIQUE NOT NULL,
-        role text DEFAULT 'player',
-        created_at timestamp with time zone DEFAULT now()
-      );
-    `;
-
     console.log('📦 Creating table "user_accounts"...');
     await sql`
       CREATE TABLE IF NOT EXISTS user_accounts (
@@ -58,11 +48,21 @@ async function init() {
       );
     `;
 
+    console.log('📦 Creating table "profiles"...');
+    await sql`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id uuid PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE,
+        nickname text UNIQUE NOT NULL,
+        role text DEFAULT 'player',
+        created_at timestamp with time zone DEFAULT now()
+      );
+    `;
+
     console.log('📦 Creating table "leaderboard"...');
     await sql`
       CREATE TABLE IF NOT EXISTS leaderboard (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        player_id uuid REFERENCES profiles(id),
+        player_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
         nickname text NOT NULL,
         score integer NOT NULL,
         created_at timestamp with time zone DEFAULT now()
@@ -71,12 +71,11 @@ async function init() {
 
     console.log('🔒 Disabling RLS for simplicity (Demo mode)...');
     await sql`ALTER TABLE game_state DISABLE ROW LEVEL SECURITY;`;
-    await sql`ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;`;
     await sql`ALTER TABLE user_accounts DISABLE ROW LEVEL SECURITY;`;
+    await sql`ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;`;
     await sql`ALTER TABLE leaderboard DISABLE ROW LEVEL SECURITY;`;
 
     console.log('📡 Enabling Realtime...');
-    // Realtime setup (idempotent if possible)
     await sql`ALTER PUBLICATION supabase_realtime ADD TABLE game_state;`.catch(() => {});
     await sql`ALTER PUBLICATION supabase_realtime ADD TABLE leaderboard;`.catch(() => {});
 

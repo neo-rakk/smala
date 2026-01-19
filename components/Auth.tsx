@@ -29,26 +29,27 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           throw new Error('Cet identifiant est déjà utilisé');
         }
 
-        // 2. Create profile
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .insert([{ nickname: nickname.toUpperCase() }])
-          .select()
-          .single();
-
-        if (profileError) throw profileError;
-
-        // 3. Create account
-        const { error: accountError } = await supabase
+        // 2. Create account
+        const { data: account, error: accountError } = await supabase
           .from('user_accounts')
           .insert([{
             username: username.trim().toLowerCase(),
-            password,
-            profile_id: profile.id,
+            password
+          }])
+          .select()
+          .single();
+
+        if (accountError) throw accountError;
+
+        // 3. Create profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([{
+            id: account.id,
             nickname: nickname.toUpperCase()
           }]);
 
-        if (accountError) throw accountError;
+        if (profileError) throw profileError;
 
         alert('Compte créé ! Vous pouvez vous connecter.');
         setIsSignUp(false);
@@ -56,7 +57,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         // Custom login
         const { data: account, error: loginError } = await supabase
           .from('user_accounts')
-          .select('*')
+          .select('*, profiles(nickname)')
           .eq('username', username.trim().toLowerCase())
           .eq('password', password)
           .maybeSingle();
@@ -66,11 +67,17 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
            throw new Error('Identifiant ou mot de passe incorrect');
         }
 
+        const profile = Array.isArray(account.profiles) ? account.profiles[0] : account.profiles;
+
+        if (!profile) {
+          throw new Error('Profil non trouvé');
+        }
+
         // Store session in localStorage
         const sessionData = {
-           userId: account.profile_id,
+           userId: account.id,
            username: account.username,
-           nickname: account.nickname,
+           nickname: profile.nickname,
            expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
         };
         localStorage.setItem('game_session', JSON.stringify(sessionData));

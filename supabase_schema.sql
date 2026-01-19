@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS user_accounts (
 
 -- 2. Table des profils joueurs
 CREATE TABLE IF NOT EXISTS profiles (
-    id UUID PRIMARY KEY, -- Référence user_accounts.id
+    id UUID PRIMARY KEY REFERENCES user_accounts(id) ON DELETE CASCADE,
     nickname TEXT UNIQUE NOT NULL,
     role TEXT DEFAULT 'player',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS game_state (
 -- 4. Table du classement (Leaderboard)
 CREATE TABLE IF NOT EXISTS leaderboard (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    player_id UUID REFERENCES profiles(id),
+    player_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
     nickname TEXT NOT NULL,
     score INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -39,8 +39,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE leaderboard;
 
 -- 6. Désactiver RLS (Optionnel, pour faciliter le développement)
 ALTER TABLE game_state DISABLE ROW LEVEL SECURITY;
-ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE user_accounts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE leaderboard DISABLE ROW LEVEL SECURITY;
 
 -- 7. Insertion de l'état initial du jeu

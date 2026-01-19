@@ -319,7 +319,7 @@ const App: React.FC = () => {
         if (next.state === GameState.FINISHED) {
            const winnerName = next.teamAScore > next.teamBScore ? next.teamAName : next.teamBName;
            const winnerScore = next.teamAScore > next.teamBScore ? next.teamAScore : next.teamBScore;
-           await supabase.from('leaderboard').insert([{ team_name: winnerName, score: winnerScore }]);
+           await supabase.from('leaderboard').insert([{ nickname: winnerName, score: winnerScore }]);
         }
         await localDB.reset();
         window.location.reload();
