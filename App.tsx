@@ -163,9 +163,9 @@ const GamePage: React.FC<{
         <div className="bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/5 shadow-2xl">
           <p className="text-[9px] font-black tracking-widest text-slate-500 uppercase flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-            <span className="text-yellow-500/90">Famille DZ EN OR</span>
+            <span className="text-yellow-500/90">PANDORA LIVE</span>
             <span className="opacity-20">|</span>
-            PANDORA LIVE Ver Beta 
+            FAMILLE DZ EN OR 
           </p>
         </div>
       </footer>
