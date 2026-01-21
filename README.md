@@ -18,6 +18,7 @@ Ce projet est une adaptation du jeu "Une Famille en Or" (Family Feud) pour la cu
 Les variables d'environnement nécessaires sont :
 - `VITE_SUPABASE_URL` : L'URL de votre projet Supabase.
 - `VITE_SUPABASE_ANON_KEY` : La clé API anonyme de votre projet.
+- `VITE_ADMIN_PIN` : Le code PIN pour accéder à la régie (ex: `2985`).
 
 ## 🎮 Comment Jouer
 

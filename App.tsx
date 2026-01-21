@@ -1,177 +1,14 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
-import { GameRoom, GameState, Team, User, Profile } from './types';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { GameRoom, GameState, Team, Profile } from './types';
 import { INITIAL_QUESTIONS } from './constants';
-import GameBoard from './components/GameBoard';
-import AdminPanel from './components/AdminPanel';
+import GamePage from './components/GamePage';
 import SoundService from './services/SoundService';
 import { localDB } from './services/LocalDB';
 import { supabase } from './services/supabase';
 import Auth from './components/Auth';
 import Leaderboard from './components/Leaderboard';
-
-const TeamEditSection: React.FC<{
-  team: Team,
-  room: GameRoom,
-  user: User,
-  handleAction: (type: string, payload: any) => Promise<void>
-}> = ({ team, room, user, handleAction }) => {
-  const [input, setInput] = useState('');
-  const isTeamA = team === Team.A;
-  const teamName = isTeamA ? room.teamAName : room.teamBName;
-  const players = room.users.filter(u => u.team === team);
-  const colorClass = isTeamA ? 'emerald' : 'red';
-
-  const onUpdate = () => {
-    if (!input.trim()) return;
-    handleAction('SET_TEAM_NAME', { team, name: input.trim() });
-    setInput('');
-  };
-
-  const cardStyle = isTeamA
-    ? (user.team === team ? 'bg-emerald-600/20 border-emerald-500' : 'bg-black/40 border-white/5')
-    : (user.team === team ? 'bg-red-600/20 border-red-500' : 'bg-black/40 border-white/5');
-
-  const titleStyle = isTeamA ? 'text-emerald-400' : 'text-red-400';
-  const buttonStyle = isTeamA ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500';
-  const borderStyle = isTeamA ? 'border-emerald-500 text-emerald-500 hover:bg-emerald-500' : 'border-red-500 text-red-500 hover:bg-red-500';
-  const inputStyle = isTeamA ? 'border-emerald-500/30 focus:border-emerald-500' : 'border-red-500/30 focus:border-red-500';
-
-  return (
-    <div className={`p-6 rounded-2xl border-2 transition-all ${cardStyle}`}>
-      <h3 className={`font-game text-2xl mb-4 uppercase ${titleStyle}`}>{teamName}</h3>
-      <div className="space-y-2 mb-4">
-        {players.map(u => (
-          <div key={u.id} className="text-xs text-white flex justify-between items-center bg-white/5 p-2 rounded-lg">
-            <span>{u.nickname} {u.isCaptain && <i className="fas fa-crown text-yellow-500 ml-1"></i>}</span>
-          </div>
-        ))}
-        {[...Array(Math.max(0, 4 - players.length))].map((_, i) => (
-          <div key={i} className="text-[10px] text-slate-600 border border-dashed border-slate-800 p-2 rounded-lg text-center">Place libre</div>
-        ))}
-      </div>
-
-      {user.team !== team && players.length < 4 && (
-        <button onClick={() => handleAction('SET_PLAYER_TEAM', { userId: user.id, team })} className={`w-full py-2 rounded-lg font-bold text-xs uppercase transition-colors text-white ${buttonStyle}`}>Rejoindre</button>
-      )}
-
-      {user.team === team && !user.isCaptain && (
-        <button onClick={() => handleAction('SET_CAPTAIN', { userId: user.id })} className={`w-full py-2 border rounded-lg font-bold text-xs uppercase hover:text-white transition-all mt-2 ${borderStyle}`}>Devenir Capitaine</button>
-      )}
-
-      {user.team === team && user.isCaptain && (
-        <div className="mt-2 flex gap-2">
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Nouveau nom..."
-            className={`flex-1 bg-black border rounded-lg px-2 text-xs text-white outline-none ${inputStyle}`}
-          />
-          <button onClick={onUpdate} className={`p-2 rounded-lg transition-colors ${buttonStyle}`}><i className="fas fa-check text-xs text-white"></i></button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const GamePage: React.FC<{
-  room: GameRoom | null,
-  user: User | null,
-  isAdmin: boolean,
-  handleAction: (type: string, payload: any) => Promise<void>,
-  setShowLogin: (show: boolean) => void,
-  onLogoutAdmin: () => void
-}> = ({ room, user, isAdmin, handleAction, setShowLogin, onLogoutAdmin }) => {
-  const [showLobby, setShowLobby] = useState(true);
-
-  return (
-    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-hidden relative font-sans">
-      {!isAdmin && (
-        <div className="fixed bottom-4 right-4 flex gap-2 z-[200]">
-           {room?.state === GameState.LOBBY && user && !showLobby && (
-             <button
-               onClick={() => setShowLobby(true)}
-               className="px-4 h-10 rounded-full bg-yellow-600 hover:bg-yellow-500 text-white flex items-center justify-center transition-all border border-white/10 text-[10px] font-black uppercase tracking-tighter"
-             >
-               GESTION ÉQUIPE
-             </button>
-           )}
-           <Link to="/leaderboard" className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10">
-            <i className="fas fa-trophy text-yellow-500/40 text-sm"></i>
-          </Link>
-          <button
-            onClick={() => setShowLogin(true)}
-            className="w-10 h-10 rounded-full bg-white/5 hover:bg-yellow-600/20 flex items-center justify-center transition-all border border-white/10"
-          >
-            <i className="fas fa-cog text-white/40 text-sm"></i>
-          </button>
-        </div>
-      )}
-
-      {isAdmin && room && (
-        <div className="md:w-[380px] lg:w-[420px] bg-slate-900 border-r border-slate-800 p-4 overflow-y-auto shadow-2xl z-20 shrink-0">
-          <AdminPanel
-            room={room}
-            onAction={handleAction}
-            isPaused={false}
-            onTogglePause={() => {}}
-            onLogout={onLogoutAdmin}
-          />
-        </div>
-      )}
-
-      <div className="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black relative">
-        {!room ? (
-          <div className="text-center space-y-6 animate-pulse">
-            <h1 className="text-6xl md:text-8xl font-game text-yellow-500 tracking-tighter drop-shadow-2xl">FAMILLE DZ EN OR</h1>
-            <p className="text-slate-500 font-black uppercase tracking-[0.5em] text-xs md:text-sm">En attente de la régie...</p>
-          </div>
-        ) : (
-          <>
-            {room.state === GameState.LOBBY && user && showLobby && (
-              <div className="z-[300] fixed inset-0 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
-                <div className="bg-slate-900/95 backdrop-blur-xl p-8 rounded-[2rem] border-2 border-white/5 shadow-2xl w-full max-w-2xl space-y-8 animate-in zoom-in duration-500">
-                  <div className="text-center">
-                    <h2 className="text-4xl font-game text-yellow-500 uppercase">Préparation du Match</h2>
-                    <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">Bienvenue, {user.nickname}</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <TeamEditSection team={Team.A} room={room} user={user} handleAction={handleAction} />
-                    <TeamEditSection team={Team.B} room={room} user={user} handleAction={handleAction} />
-                  </div>
-
-                  <div className="text-center space-y-4">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">Seulement 4 joueurs par équipe. Les autres peuvent observer.</p>
-                    <button
-                      onClick={() => setShowLobby(false)}
-                      className="px-12 py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-game text-xl rounded-xl shadow-xl transition-all active:scale-95"
-                    >
-                      OK, JE SUIS PRÊT !
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            <GameBoard room={room} user={user || {isHost: isAdmin} as any} onRoll={() => {}} onLogout={() => {}} />
-          </>
-        )}
-      </div>
-
-      <footer className="fixed bottom-0 left-0 w-full py-2 px-4 flex justify-center items-center pointer-events-none z-[100]">
-        <div className="bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/5 shadow-2xl">
-          <p className="text-[9px] font-black tracking-widest text-slate-500 uppercase flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-            <span className="text-yellow-500/90">PANDORA LIVE</span>
-            <span className="opacity-20">|</span>
-            FAMILLE DZ EN OR 
-          </p>
-        </div>
-      </footer>
-    </div>
-  );
-};
 
 const App: React.FC = () => {
   const [room, setRoom] = useState<GameRoom | null>(null);
@@ -451,7 +288,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleAdminLogin = () => {
-    if (pin === '2985') {
+    if (pin === (import.meta.env.VITE_ADMIN_PIN || '2985')) {
       setIsAdmin(true);
       setShowLogin(false);
       SoundService.unlockAudio();
