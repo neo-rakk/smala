@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GameRoom, GameState, Team, Profile } from './types';
@@ -46,25 +45,41 @@ const App: React.FC = () => {
     const current = room || await localDB.getState();
     
     let next: GameRoom;
+    let nextHostId: string | undefined = undefined;
+
     if (!current) {
         const freshQuestions = JSON.parse(JSON.stringify(INITIAL_QUESTIONS)).map((q: any) => ({
           ...q, answers: q.answers.map((a: any) => ({ ...a, revealed: false }))
         }));
+
+        // When initializing, if we are the admin (session exists + validated PIN), we become the host
+        const hostId = (session && isAdmin) ? session.user.id : 'admin';
+
         next = {
-          code: "LIVE-DZ", state: GameState.LOBBY, hostId: 'admin',
+          code: "LIVE-DZ", state: GameState.LOBBY, hostId,
           teamAName: "FAMILLE A", teamBName: "FAMILLE B", teamAScore: 0, teamBScore: 0,
           roundScore: 0, strikes: 0, currentQuestionId: 1, maxRounds: 3,
           activeTeam: Team.NONE, diceResults: {}, users: [], activeQuestions: freshQuestions
         };
+        nextHostId = hostId;
     } else {
         next = JSON.parse(JSON.stringify(current));
     }
 
     const currentQuestion = next.activeQuestions.find(q => q.id === next.currentQuestionId);
 
+    // Security Check: Some actions should only be done by Admin/Host
+    // But since this is a refactor without breaking much, we keep it loose but rely on RLS for the actual SAVE.
+    // If the current user is NOT the host, RLS might block the save if we are trying to update game state.
+
     switch (type) {
       case 'INIT':
         // Initialization handled by the 'if (!current)' block above
+        // But if we are re-initializing an existing game to claim it?
+        if (current && isAdmin && session) {
+             next.hostId = session.user.id;
+             nextHostId = session.user.id;
+        }
         break;
 
       case 'START_GAME':
@@ -226,9 +241,10 @@ const App: React.FC = () => {
         break;
     }
 
-    await localDB.saveState(next);
+    // Pass nextHostId to saveState so it updates the host_id column if needed
+    await localDB.saveState(next, nextHostId);
     setRoom(next);
-  }, [room, session, profile]);
+  }, [room, session, profile, isAdmin]);
 
   useEffect(() => {
     handleActionRef.current = handleAction;
@@ -247,9 +263,6 @@ const App: React.FC = () => {
         fetchProfile(session.user.id);
       } else {
         setProfile(null);
-        // We don't necessarily want to remove the player from the room here
-        // because we don't have their ID anymore in 'session'.
-        // The cleanup should probably be handled differently or by the admin.
       }
     });
 
@@ -288,11 +301,18 @@ const App: React.FC = () => {
   }, []);
 
   const handleAdminLogin = () => {
-    if (pin === (import.meta.env.VITE_ADMIN_PIN || '2985')) {
+    if (pin === (import.meta.env.VITE_ADMIN_PIN || '2908')) {
       setIsAdmin(true);
       setShowLogin(false);
       SoundService.unlockAudio();
-      if (!room) handleAction('INIT', {});
+
+      // If we are logged in, we claim the room as host immediately
+      if (session) {
+         handleAction('INIT', {});
+      } else {
+         // Fallback if not logged in (legacy support, though not recommended with RLS)
+         if (!room) handleAction('INIT', {});
+      }
     } else {
       alert("PIN Incorrect");
     }

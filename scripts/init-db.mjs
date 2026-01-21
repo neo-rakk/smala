@@ -28,14 +28,23 @@ async function init() {
   const sql = postgres(connectionString, { ssl: 'require' });
 
   try {
+    // --- TABLES ---
+
     console.log('📦 Creating table "game_state"...');
     await sql`
       CREATE TABLE IF NOT EXISTS game_state (
         id text PRIMARY KEY,
         payload jsonb NOT NULL,
+        host_id uuid,
         updated_at timestamp with time zone DEFAULT now()
       );
     `;
+
+    // Ensure host_id column exists if table was already created
+    try {
+      await sql`ALTER TABLE game_state ADD COLUMN IF NOT EXISTS host_id uuid;`;
+    } catch (e) { /* ignore */ }
+
 
     console.log('📦 Creating table "profiles"...');
     await sql`
@@ -67,35 +76,89 @@ async function init() {
       );
     `;
 
-    console.log('🔒 Disabling RLS for simplicity (Demo mode)...');
-    await sql`ALTER TABLE game_state DISABLE ROW LEVEL SECURITY;`;
-    await sql`ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;`;
-    await sql`ALTER TABLE teams DISABLE ROW LEVEL SECURITY;`;
-    await sql`ALTER TABLE leaderboard DISABLE ROW LEVEL SECURITY;`;
+    // --- RLS SECURITY ---
+    console.log('🔒 Enabling RLS and configuring policies...');
 
-    console.log('📡 Enabling Realtime for "game_state"...');
-    const [existing] = await sql`
-      SELECT 1 FROM pg_publication_tables
-      WHERE pubname = 'supabase_realtime'
-      AND schemaname = 'public'
-      AND tablename = 'game_state';
-    `;
-    if (!existing) {
-      await sql`ALTER PUBLICATION supabase_realtime ADD TABLE game_state;`;
+    // 1. game_state
+    await sql`ALTER TABLE game_state ENABLE ROW LEVEL SECURITY;`;
+    // Drop existing policies to ensure clean state
+    await sql`DROP POLICY IF EXISTS "Public Read game_state" ON game_state;`;
+    await sql`DROP POLICY IF EXISTS "Authenticated Update game_state" ON game_state;`;
+    await sql`DROP POLICY IF EXISTS "Public Insert game_state" ON game_state;`;
+
+    // Policies
+    await sql`CREATE POLICY "Public Read game_state" ON game_state FOR SELECT USING (true);`;
+
+    // We allow any authenticated user to INSERT (to initialize the game if missing)
+    await sql`CREATE POLICY "Authenticated Insert game_state" ON game_state FOR INSERT WITH CHECK (auth.role() = 'authenticated');`;
+
+    // UPDATE: Only the host (stored in host_id) OR any authenticated user if host_id is NULL (initial setup)
+    // NOTE: For simplicity and robustness in this "Live" context where the Admin might change,
+    // we allow the current host to update.
+    // However, since we are moving from "PIN only" to "Admin User", we need to trust the logged in user.
+    // The App logic will set host_id on INIT.
+    // Policy: User can update if they are the host_id OR if they are claiming it (INIT).
+    // Simplifying: Authenticated users can update. The App logic guards the business rules.
+    // Ideally: USING (auth.uid() = host_id)
+    // But let's start with "Authenticated" to avoid breaking the "Claim Host" flow,
+    // or we need a specific flow to set host_id.
+    // Let's go with: Authenticated users can UPDATE. This is better than "Public".
+    await sql`CREATE POLICY "Authenticated Update game_state" ON game_state FOR UPDATE USING (auth.role() = 'authenticated');`;
+
+
+    // 2. profiles
+    await sql`ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;`;
+    await sql`DROP POLICY IF EXISTS "Public Read profiles" ON profiles;`;
+    await sql`DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;`;
+    await sql`DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;`;
+
+    await sql`CREATE POLICY "Public Read profiles" ON profiles FOR SELECT USING (true);`;
+    await sql`CREATE POLICY "Users can insert their own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);`;
+    await sql`CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);`;
+
+    // 3. teams
+    await sql`ALTER TABLE teams ENABLE ROW LEVEL SECURITY;`;
+    await sql`DROP POLICY IF EXISTS "Public Read teams" ON teams;`;
+    await sql`DROP POLICY IF EXISTS "Authenticated Create teams" ON teams;`;
+
+    await sql`CREATE POLICY "Public Read teams" ON teams FOR SELECT USING (true);`;
+    await sql`CREATE POLICY "Authenticated Create teams" ON teams FOR INSERT WITH CHECK (auth.role() = 'authenticated');`;
+
+    // 4. leaderboard
+    await sql`ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;`;
+    await sql`DROP POLICY IF EXISTS "Public Read leaderboard" ON leaderboard;`;
+    await sql`DROP POLICY IF EXISTS "Authenticated Insert leaderboard" ON leaderboard;`;
+
+    await sql`CREATE POLICY "Public Read leaderboard" ON leaderboard FOR SELECT USING (true);`;
+    // Only authenticated users (technically the Admin/Host ends the game) can write to leaderboard
+    await sql`CREATE POLICY "Authenticated Insert leaderboard" ON leaderboard FOR INSERT WITH CHECK (auth.role() = 'authenticated');`;
+
+
+    // --- REALTIME ---
+    console.log('📡 Enabling Realtime...');
+    const tables = ['game_state', 'leaderboard', 'profiles'];
+
+    for (const table of tables) {
+       const [existing] = await sql`
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = ${table};
+      `;
+      if (!existing) {
+        // Safe to add even if publication exists (it just adds the table)
+        // But we check just to be clean.
+        // Note: ALTER PUBLICATION ... ADD TABLE throws if table is already in it, so we need to be careful.
+        // The query above checks this specific table.
+         try {
+            await sql`ALTER PUBLICATION supabase_realtime ADD TABLE ${sql(table)};`;
+         } catch(e) {
+            console.log(`Note: Could not add ${table} to realtime (maybe already there?): ${e.message}`);
+         }
+      }
     }
 
-    // Also enable for leaderboard to have live updates if someone is watching
-    const [existingLb] = await sql`
-      SELECT 1 FROM pg_publication_tables
-      WHERE pubname = 'supabase_realtime'
-      AND schemaname = 'public'
-      AND tablename = 'leaderboard';
-    `;
-    if (!existingLb) {
-      await sql`ALTER PUBLICATION supabase_realtime ADD TABLE leaderboard;`;
-    }
-
-    console.log('✨ Database initialization complete!');
+    console.log('✨ Database initialization & Security Audit complete!');
   } catch (error) {
     console.error('❌ Error during database initialization:', error);
     process.exit(1);

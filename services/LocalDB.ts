@@ -30,13 +30,25 @@ class LocalDB {
     }
   }
 
-  async saveState(newState: GameRoom): Promise<void> {
+  async saveState(newState: GameRoom, hostId?: string): Promise<void> {
+    const payloadToSave: any = { id: this.GAME_ID, payload: newState };
+
+    // If we have a hostId (only when Admin initializes/updates), we save it to the separate column
+    // This helps with RLS policies in the future
+    if (hostId) {
+      payloadToSave.host_id = hostId;
+    }
+
     const { error } = await supabase
       .from(this.TABLE_NAME)
-      .upsert({ id: this.GAME_ID, payload: newState });
+      .upsert(payloadToSave);
 
     if (error) {
       console.error('Error saving state:', error);
+      // If error is 401/403, it means RLS blocked it
+      if (error.code === '42501' || error.message?.includes('violates row-level security')) {
+         console.warn("Write blocked by RLS. Are you the host?");
+      }
     }
   }
 
