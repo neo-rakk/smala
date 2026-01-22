@@ -85,6 +85,7 @@ async function init() {
     await sql`DROP POLICY IF EXISTS "Public Read game_state" ON game_state;`;
     await sql`DROP POLICY IF EXISTS "Authenticated Update game_state" ON game_state;`;
     await sql`DROP POLICY IF EXISTS "Public Insert game_state" ON game_state;`;
+    await sql`DROP POLICY IF EXISTS "Authenticated Insert game_state" ON game_state;`;
 
     // Policies
     // Explicitly allow both anon and authenticated roles to read
