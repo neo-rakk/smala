@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { GameRoom, GameState, Team, User } from '../types';
 import AdminPanel from './AdminPanel';
 import GameBoard from './GameBoard';
 import TeamEditSection from './TeamEditSection';
+import SoundService from '../services/SoundService';
 
 interface GamePageProps {
   room: GameRoom | null;
@@ -16,6 +17,14 @@ interface GamePageProps {
 
 const GamePage: React.FC<GamePageProps> = ({ room, user, isAdmin, handleAction, setShowLogin, onLogoutAdmin }) => {
   const [showLobby, setShowLobby] = useState(true);
+  const lastPlayedSoundId = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (room?.lastSound && room.lastSound.id !== lastPlayedSoundId.current) {
+      SoundService.play(room.lastSound.type);
+      lastPlayedSoundId.current = room.lastSound.id;
+    }
+  }, [room?.lastSound]);
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-hidden relative font-sans">

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { GameRoom, GameState, Team, User } from '../types';
+import { GameRoom, GameState, Team, User, Question } from '../types';
 import SoundService from '../services/SoundService';
 
 interface AdminPanelProps {
@@ -29,6 +29,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
     };
     onAction('ADD_PLAYER', { user: newUser });
     setNewPlayerName('');
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const json = JSON.parse(text);
+
+        // Basic validation
+        if (Array.isArray(json) && json.every(q => q.id && q.questionText && Array.isArray(q.answers))) {
+          if (confirm(`Charger ${json.length} questions ? Cela remplacera le quiz actuel.`)) {
+             onAction('SET_QUESTIONS', { questions: json });
+             alert("Quiz chargé avec succès !");
+          }
+        } else {
+          alert("Format JSON invalide. Assurez-vous d'avoir un tableau de questions.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Erreur lors de la lecture du fichier JSON.");
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    event.target.value = '';
   };
 
   return (
@@ -234,6 +263,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
               >
                 <i className="fas fa-sync-alt mr-2"></i> RÉINITIALISER LE SHOW
               </button>
+
+              <div className="pt-4 border-t border-slate-700">
+                <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Charger un nouveau Quiz (JSON)</p>
+                <label className="block w-full cursor-pointer bg-slate-900 border border-dashed border-slate-600 rounded-xl p-4 text-center hover:bg-slate-800 transition-colors">
+                  <span className="text-xs font-bold text-slate-400"><i className="fas fa-upload mr-2"></i>Cliquez pour choisir un fichier</span>
+                  <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+                </label>
+              </div>
             </div>
           </div>
         )}

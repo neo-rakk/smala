@@ -73,4 +73,5 @@ export interface GameRoom {
   diceResults: { [key: string]: number };
   users: User[];
   activeQuestions: Question[];
+  lastSound?: { id: number; type: string };
 }

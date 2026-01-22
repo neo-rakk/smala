@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { GameRoom, GameState, Team, Profile } from './types';
+import { GameRoom, GameState, Team, Profile, Question } from './types';
 import { INITIAL_QUESTIONS } from './constants';
 import GamePage from './components/GamePage';
 import SoundService from './services/SoundService';
@@ -68,14 +68,13 @@ const App: React.FC = () => {
 
     const currentQuestion = next.activeQuestions.find(q => q.id === next.currentQuestionId);
 
-    // Security Check: Some actions should only be done by Admin/Host
-    // But since this is a refactor without breaking much, we keep it loose but rely on RLS for the actual SAVE.
-    // If the current user is NOT the host, RLS might block the save if we are trying to update game state.
+    // Helper to trigger sound
+    const triggerSound = (soundName: string) => {
+      next.lastSound = { id: Date.now(), type: soundName };
+    };
 
     switch (type) {
       case 'INIT':
-        // Initialization handled by the 'if (!current)' block above
-        // But if we are re-initializing an existing game to claim it?
         if (current && isAdmin && session) {
              next.hostId = session.user.id;
              nextHostId = session.user.id;
@@ -93,7 +92,7 @@ const App: React.FC = () => {
       
       case 'PICK_RANDOM_TEAM':
         next.activeTeam = Math.random() > 0.5 ? Team.A : Team.B;
-        SoundService.play('tada');
+        triggerSound('tada');
         break;
 
       case 'REVEAL_ANSWER':
@@ -102,7 +101,7 @@ const App: React.FC = () => {
         if (ans && !ans.revealed) {
           ans.revealed = true;
           next.roundScore += ans.points;
-          SoundService.play('ding');
+          triggerSound('ding');
           
           if (next.state === GameState.STEAL) {
             if (next.activeTeam === Team.A) next.teamAScore += next.roundScore;
@@ -134,7 +133,7 @@ const App: React.FC = () => {
 
       case 'ADD_STRIKE':
         if (next.state === GameState.STEAL) {
-          SoundService.play('buzzer');
+          triggerSound('buzzer');
           const originalTeam = next.activeTeam === Team.A ? Team.B : Team.A;
           if (originalTeam === Team.A) next.teamAScore += next.roundScore;
           else if (originalTeam === Team.B) next.teamBScore += next.roundScore;
@@ -148,13 +147,13 @@ const App: React.FC = () => {
           break;
         }
         next.strikes = Math.min(3, next.strikes + 1);
-        SoundService.play('buzzer');
+        triggerSound('buzzer');
         break;
 
       case 'ACTIVATE_STEAL':
         next.state = GameState.STEAL;
         next.activeTeam = next.activeTeam === Team.A ? Team.B : Team.A;
-        SoundService.play('tada');
+        triggerSound('tada');
         break;
 
       case 'END_ROUND':
@@ -167,6 +166,7 @@ const App: React.FC = () => {
         next.strikes = 0;
         next.activeTeam = Team.NONE;
         if (next.currentQuestionId > next.maxRounds) next.state = GameState.FINISHED;
+        triggerSound('tada');
         break;
 
       case 'SET_PLAYER_TEAM':
@@ -237,6 +237,18 @@ const App: React.FC = () => {
               score: 0
             });
           }
+        }
+        break;
+
+      case 'SET_QUESTIONS':
+        if (payload.questions && Array.isArray(payload.questions)) {
+           next.activeQuestions = payload.questions.map((q: any) => ({
+             ...q,
+             answers: q.answers.map((a: any) => ({ ...a, revealed: false }))
+           }));
+           next.currentQuestionId = next.activeQuestions[0]?.id || 1;
+           next.roundScore = 0;
+           next.strikes = 0;
         }
         break;
     }
