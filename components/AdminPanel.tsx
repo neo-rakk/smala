@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameRoom, GameState, Team, User, Question } from '../types';
 import SoundService from '../services/SoundService';
+import { supabase } from '../services/supabase';
 
 interface AdminPanelProps {
   room: GameRoom;
@@ -12,10 +13,34 @@ interface AdminPanelProps {
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'JEU' | 'JOUEURS' | 'SCORES' | 'QUIZ'>('JEU');
+  const [activeTab, setActiveTab] = useState<'JEU' | 'JOUEURS' | 'SCORES' | 'QUIZ' | 'CLASSEMENT'>('JEU');
   const [newPlayerName, setNewPlayerName] = useState('');
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
   
   const currentQuestion = room.activeQuestions.find(q => q.id === room.currentQuestionId);
+
+  useEffect(() => {
+    if (activeTab === 'CLASSEMENT') {
+      fetchLeaderboard();
+    }
+  }, [activeTab]);
+
+  const fetchLeaderboard = async () => {
+    const { data } = await supabase.from('leaderboard').select('*').order('score', { ascending: false });
+    if (data) setLeaderboard(data);
+  };
+
+  const deleteScore = async (id: string) => {
+    if (!confirm("Supprimer ce score ?")) return;
+    await supabase.from('leaderboard').delete().eq('id', id);
+    fetchLeaderboard();
+  };
+
+  const resetLeaderboard = async () => {
+    if (!confirm("ATTENTION: Vider TOUT le classement ?")) return;
+    await supabase.from('leaderboard').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Hack to delete all
+    fetchLeaderboard();
+  };
 
   const addPlayer = () => {
     if (!newPlayerName.trim()) return;
@@ -78,13 +103,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
 
       {/* Onglets */}
       <div className="flex bg-slate-900 p-1 rounded-xl gap-1 border border-slate-800">
-        {['JEU', 'JOUEURS', 'SCORES', 'QUIZ'].map((tab) => (
+        {['JEU', 'JOUEURS', 'SCORES', 'QUIZ', 'CLASSEMENT'].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
             className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all ${activeTab === tab ? 'bg-yellow-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            {tab}
+            {tab === 'CLASSEMENT' ? 'TOP' : tab}
           </button>
         ))}
       </div>
@@ -202,6 +227,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ room, onAction, onLogout }) => 
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {activeTab === 'CLASSEMENT' && (
+          <div className="space-y-4">
+             <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 space-y-4">
+               <div className="flex justify-between items-center">
+                 <p className="text-[10px] font-black text-slate-500 uppercase">Gestion du Tableau d'Honneur</p>
+                 <button onClick={resetLeaderboard} className="text-[9px] text-red-500 font-bold hover:underline">TOUT VIDER</button>
+               </div>
+
+               <div className="space-y-2 max-h-96 overflow-y-auto">
+                 {leaderboard.length === 0 ? (
+                   <p className="text-xs text-slate-500 text-center italic py-4">Aucun score enregistré.</p>
+                 ) : (
+                   leaderboard.map((entry, idx) => (
+                     <div key={entry.id} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                           <span className="text-slate-600 font-black text-lg">#{idx + 1}</span>
+                           <div>
+                              <p className="text-xs font-black text-white uppercase">{entry.team_name}</p>
+                              <p className="text-[9px] font-game text-yellow-500">{entry.score} PTS</p>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <span className="text-[8px] text-slate-600">{new Date(entry.created_at).toLocaleDateString()}</span>
+                           <button onClick={() => deleteScore(entry.id)} className="w-6 h-6 rounded bg-red-900/20 text-red-500 hover:bg-red-600 hover:text-white transition-colors flex items-center justify-center">
+                              <i className="fas fa-trash text-[10px]"></i>
+                           </button>
+                        </div>
+                     </div>
+                   ))
+                 )}
+               </div>
+             </div>
           </div>
         )}
         {activeTab === 'SCORES' && (

@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [pin, setPin] = useState('');
   const handleActionRef = useRef<any>(null);
+  const hasSavedScoreRef = useRef(false);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -181,12 +182,7 @@ const App: React.FC = () => {
         break;
 
       case 'RESET_GAME':
-        // Record leaderboard before reset if game was finished
-        if (next.state === GameState.FINISHED) {
-           const winnerName = next.teamAScore > next.teamBScore ? next.teamAName : next.teamBName;
-           const winnerScore = next.teamAScore > next.teamBScore ? next.teamAScore : next.teamBScore;
-           await supabase.from('leaderboard').insert([{ team_name: winnerName, score: winnerScore }]);
-        }
+        // Note: Leaderboard saving is now handled when state transitions to FINISHED
         await localDB.reset();
         window.location.reload();
         return;
@@ -289,6 +285,29 @@ const App: React.FC = () => {
       }
     }
   }, [session, profile, room, handleAction]);
+
+  // Auto-save score when game finishes
+  useEffect(() => {
+    if (room?.state === GameState.FINISHED && isAdmin && !hasSavedScoreRef.current) {
+      const saveScore = async () => {
+         const winnerName = room.teamAScore > room.teamBScore ? room.teamAName : room.teamBName;
+         const winnerScore = room.teamAScore > room.teamBScore ? room.teamAScore : room.teamBScore;
+
+         // Only save if score > 0 to avoid empty spam
+         if (winnerScore > 0) {
+            console.log("Saving score for winner:", winnerName, winnerScore);
+            await supabase.from('leaderboard').insert([{ team_name: winnerName, score: winnerScore }]);
+         }
+         hasSavedScoreRef.current = true;
+      };
+      saveScore();
+    }
+
+    // Reset the ref if state changes back to something else (unlikely unless manual edit)
+    if (room?.state !== GameState.FINISHED) {
+      hasSavedScoreRef.current = false;
+    }
+  }, [room?.state, isAdmin, room?.teamAScore, room?.teamBScore, room?.teamAName, room?.teamBName]);
 
   useEffect(() => {
     if (session) {

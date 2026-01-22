@@ -128,10 +128,13 @@ async function init() {
     await sql`ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;`;
     await sql`DROP POLICY IF EXISTS "Public Read leaderboard" ON leaderboard;`;
     await sql`DROP POLICY IF EXISTS "Authenticated Insert leaderboard" ON leaderboard;`;
+    await sql`DROP POLICY IF EXISTS "Authenticated Delete leaderboard" ON leaderboard;`;
 
     await sql`CREATE POLICY "Public Read leaderboard" ON leaderboard FOR SELECT USING (true);`;
     // Only authenticated users (technically the Admin/Host ends the game) can write to leaderboard
     await sql`CREATE POLICY "Authenticated Insert leaderboard" ON leaderboard FOR INSERT WITH CHECK (auth.role() = 'authenticated');`;
+    // Allow admin (authenticated) to delete scores
+    await sql`CREATE POLICY "Authenticated Delete leaderboard" ON leaderboard FOR DELETE USING (auth.role() = 'authenticated');`;
 
 
     // --- TRIGGERS ---
