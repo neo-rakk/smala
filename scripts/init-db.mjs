@@ -134,6 +134,39 @@ async function init() {
     await sql`CREATE POLICY "Authenticated Insert leaderboard" ON leaderboard FOR INSERT WITH CHECK (auth.role() = 'authenticated');`;
 
 
+    // --- TRIGGERS ---
+    console.log('⚡ Configuring Auth Triggers...');
+
+    // Function to handle new user creation
+    await sql`
+      CREATE OR REPLACE FUNCTION public.handle_new_user()
+      RETURNS trigger AS $$
+      BEGIN
+        INSERT INTO public.profiles (id, nickname, avatar_url)
+        VALUES (
+          new.id,
+          new.raw_user_meta_data->>'nickname',
+          new.raw_user_meta_data->>'avatar_url'
+        );
+        RETURN new;
+      END;
+      $$ LANGUAGE plpgsql SECURITY DEFINER;
+    `;
+
+    // Trigger on auth.users
+    // Note: This requires permissions on the auth schema, typically available to the postgres role.
+    try {
+      await sql`DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;`;
+      await sql`
+        CREATE TRIGGER on_auth_user_created
+        AFTER INSERT ON auth.users
+        FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+      `;
+    } catch (e) {
+      console.warn('⚠️ Could not configure trigger on auth.users (likely permission issue or local dev environment). Manual profile creation might be needed if this fails.');
+      console.error(e);
+    }
+
     // --- REALTIME ---
     console.log('📡 Enabling Realtime...');
     const tables = ['game_state', 'leaderboard', 'profiles'];

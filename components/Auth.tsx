@@ -33,23 +33,16 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              nickname: nickname.toUpperCase(),
+            },
+          },
         });
         if (error) throw error;
 
-        if (data.user) {
-          // Create profile
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert([{ id: data.user.id, nickname: nickname.toUpperCase() }]);
+        // Profile is created automatically via Database Trigger (handle_new_user)
 
-          // If profile creation fails, we should probably warn, but the user is created.
-          if (profileError) {
-             console.error("Profile creation error:", profileError);
-             // Attempt to delete the auth user if profile fails?
-             // For now, let's just proceed or throw.
-             throw new Error("Erreur lors de la création du profil.");
-          }
-        }
         alert('Compte créé ! Vous êtes connecté.');
         // Sign up automatically signs in if email confirmation is disabled (which is typical for this setup)
         // If 'data.session' exists, we are logged in.
