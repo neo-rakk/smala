@@ -64,6 +64,7 @@ class LocalDB {
   }
 
   subscribe(callback: (state: GameRoom) => void): () => void {
+    console.log("Subscribing to game_state updates...");
     const channel = supabase
       .channel('game_state_sync')
       .on(
@@ -75,12 +76,21 @@ class LocalDB {
           filter: `id=eq.${this.GAME_ID}`
         },
         (payload) => {
+          console.log("Received Realtime Update:", payload.eventType);
           if (payload.new && (payload.new as any).payload) {
             callback((payload.new as any).payload as GameRoom);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+        if (status === 'SUBSCRIBED') {
+           // Optional: Fetch latest state on successful subscription to ensure sync
+           this.getState().then(state => {
+             if (state) callback(state);
+           });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

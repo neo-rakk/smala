@@ -87,7 +87,9 @@ async function init() {
     await sql`DROP POLICY IF EXISTS "Public Insert game_state" ON game_state;`;
 
     // Policies
-    await sql`CREATE POLICY "Public Read game_state" ON game_state FOR SELECT USING (true);`;
+    // Explicitly allow both anon and authenticated roles to read
+    // "TO public" covers both, but ensuring it's clear
+    await sql`CREATE POLICY "Public Read game_state" ON game_state FOR SELECT TO public USING (true);`;
 
     // We allow any authenticated user to INSERT (to initialize the game if missing)
     await sql`CREATE POLICY "Authenticated Insert game_state" ON game_state FOR INSERT WITH CHECK (auth.role() = 'authenticated');`;
@@ -172,6 +174,10 @@ async function init() {
 
     // --- REALTIME ---
     console.log('📡 Enabling Realtime...');
+
+    // Ensure REPLICA IDENTITY FULL for game_state to guarantee payload delivery
+    await sql`ALTER TABLE game_state REPLICA IDENTITY FULL;`;
+
     const tables = ['game_state', 'leaderboard', 'profiles'];
 
     for (const table of tables) {
